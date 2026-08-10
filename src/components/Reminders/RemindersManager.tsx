@@ -66,19 +66,19 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({ matters }) =
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-[13px]">
       
       {/* Header */}
-      <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+      <div className="legal-card p-6">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-600">
-            <Clock className="w-6 h-6" />
+          <div className="icon-box-32">
+            <Clock className="w-4 h-4 text-[#B8935F]" />
           </div>
           <div>
-            <h1 className="font-serif font-bold text-2xl text-slate-900 dark:text-slate-100">
+            <h1 className="font-serif font-semibold text-2xl text-[#12172B] dark:text-[#F6F3EC]">
               Hearing Alerts & Reminder Scheduler
             </h1>
-            <p className="text-xs text-slate-500">
+            <p className="text-[13px] text-[#8A90AC]">
               Set automated notifications for upcoming court cause list dates and statutory filing windows.
             </p>
           </div>
@@ -89,18 +89,18 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({ matters }) =
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Create Reminder Form */}
-        <form onSubmit={handleCreate} className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 text-xs">
-          <div className="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <Plus className="w-4 h-4 text-amber-600" />
+        <form onSubmit={handleCreate} className="legal-card p-6 space-y-4">
+          <div className="font-semibold text-sm text-[#12172B] dark:text-[#F6F3EC] flex items-center gap-2">
+            <Plus className="w-4 h-4 text-[#B8935F]" />
             Schedule Suit Alert
           </div>
 
           <div>
-            <label className="block font-bold mb-1">Select Suit / Defendant</label>
+            <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Select Suit / Defendant</label>
             <select
               value={selectedMatterId}
               onChange={(e) => setSelectedMatterId(e.target.value)}
-              className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold text-amber-600 dark:text-amber-400"
+              className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] font-bold text-[#B8935F] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
             >
               {matters.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -111,46 +111,46 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({ matters }) =
           </div>
 
           <div>
-            <label className="block font-bold mb-1">Alert Date & Time</label>
+            <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Alert Date & Time</label>
             <input
               type="datetime-local"
               required
               value={remindAtDate}
               onChange={(e) => setRemindAtDate(e.target.value)}
-              className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
+              className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] font-semibold text-[#12172B] dark:text-[#F6F3EC] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
             />
           </div>
 
           <div>
-            <label className="block font-bold mb-1">Custom Alert Message</label>
+            <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Custom Alert Message</label>
             <textarea
               rows={2}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="e.g. Prepare witness statement for P.T.C hearing before Hon. Justice Ajah"
-              className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+              className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] text-[#12172B] dark:text-[#F6F3EC] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
             />
           </div>
 
           <div>
-            <label className="block font-bold mb-1">Notification Channels</label>
+            <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Notification Channels</label>
             <div className="flex gap-4">
-              <label className="flex items-center gap-1.5 cursor-pointer font-medium">
+              <label className="flex items-center gap-1.5 cursor-pointer font-medium text-[#12172B] dark:text-[#F6F3EC]">
                 <input
                   type="checkbox"
                   checked={notifyInApp}
                   onChange={(e) => setNotifyInApp(e.target.checked)}
-                  className="rounded text-amber-600"
+                  className="rounded accent-[#B8935F]"
                 />
                 In-App Feed
               </label>
 
-              <label className="flex items-center gap-1.5 cursor-pointer font-medium">
+              <label className="flex items-center gap-1.5 cursor-pointer font-medium text-[#12172B] dark:text-[#F6F3EC]">
                 <input
                   type="checkbox"
                   checked={notifyEmail}
                   onChange={(e) => setNotifyEmail(e.target.checked)}
-                  className="rounded text-amber-600"
+                  className="rounded accent-[#B8935F]"
                 />
                 Trigger Email
               </label>
@@ -159,45 +159,45 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({ matters }) =
 
           <button
             type="submit"
-            className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold transition shadow-md"
+            className="w-full py-2.5 rounded-lg bg-[#B8935F] hover:bg-[#8C6F49] text-[#12172B] font-bold transition shadow-sm"
           >
             Schedule Alert
           </button>
         </form>
 
         {/* Reminders List */}
-        <div className="lg:col-span-2 p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
-          <div className="font-bold text-sm text-slate-900 dark:text-slate-100 flex items-center justify-between">
+        <div className="lg:col-span-2 legal-card p-6 space-y-4">
+          <div className="font-semibold text-sm text-[#12172B] dark:text-[#F6F3EC] flex items-center justify-between">
             <span>Scheduled Hearing Alerts ({reminders.length})</span>
-            <span className="text-xs text-slate-400 font-normal">Auto-scanned daily</span>
+            <span className="text-[13px] text-[#8A90AC] font-normal">Auto-scanned daily</span>
           </div>
 
           <div className="space-y-3">
             {reminders.length === 0 ? (
-              <div className="text-center py-12 text-slate-400 text-xs">
+              <div className="text-center py-12 text-[#8A90AC] text-[13px]">
                 No active hearing alerts scheduled.
               </div>
             ) : (
               reminders.map((r) => (
                 <div
                   key={r.id}
-                  className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 flex items-start justify-between text-xs"
+                  className="p-4 rounded-lg bg-[#EDE8DC] dark:bg-[#12172B]/60 border border-[rgba(184,147,95,0.2)] flex items-start justify-between text-[13px]"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                      <span className="font-mono font-bold text-[#B8935F]">
                         {r.suitNumber}
                       </span>
-                      <span className="text-[10px] text-slate-400">
+                      <span className="text-[13px] text-[#8A90AC]">
                         {new Date(r.remindAt).toLocaleString()}
                       </span>
                     </div>
 
-                    <p className="font-medium text-slate-800 dark:text-slate-200">
+                    <p className="font-medium text-[#12172B] dark:text-[#F6F3EC]">
                       {r.message}
                     </p>
 
-                    <div className="text-[10px] text-slate-400 flex items-center gap-2">
+                    <div className="text-[13px] text-[#8A90AC] flex items-center gap-2">
                       <span>Channels: {r.channel.join(', ')}</span>
                       &bull;
                       <span>Status: {r.fired ? 'FIRED' : 'PENDING'}</span>
@@ -206,7 +206,7 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({ matters }) =
 
                   <button
                     onClick={() => handleDelete(r.id)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition"
+                    className="p-1.5 rounded-lg text-[#8A90AC] hover:text-[#C1554A] hover:bg-[#C1554A]/10 transition"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

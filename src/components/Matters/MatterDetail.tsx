@@ -31,6 +31,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { printCaseBundle } from '../../utils/caseBundleGenerator';
 import { calculateStatutoryDeadlines } from '../../utils/deadlineCalculator';
+import { DocketStamp } from '../common/DocketStamp';
 
 interface MatterDetailProps {
   matter: Matter;
@@ -180,34 +181,22 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
     <div className="space-y-6">
       
       {/* Top Action Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+      <div className="legal-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+            className="p-2.5 rounded-lg bg-[#EDE8DC] dark:bg-[#1B2140] hover:bg-[#E3DDD0] dark:hover:bg-[#232A50] transition text-[#12172B] dark:text-[#F6F3EC]"
           >
-            <ArrowLeft className="w-5 h-5 text-slate-700 dark:text-slate-300" />
+            <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-mono font-bold text-lg text-amber-600 dark:text-amber-400">
+              <span className="font-mono font-bold text-lg text-[#B8935F]">
                 {matter.suitNumber}
               </span>
-              <span
-                className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
-                  matter.status === 'active'
-                    ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
-                    : matter.status === 'adjourned'
-                    ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
-                    : matter.status === 'won'
-                    ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
-                    : 'bg-slate-500/10 text-slate-600 border border-slate-500/20'
-                }`}
-              >
-                {matter.status}
-              </span>
+              <DocketStamp status={matter.status} size="sm" />
             </div>
-            <h1 className="font-serif font-bold text-lg text-slate-900 dark:text-slate-100">
+            <h1 className="font-serif font-semibold text-lg text-[#12172B] dark:text-[#F6F3EC] mt-0.5">
               {matter.title}
             </h1>
           </div>
@@ -217,16 +206,16 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
         <div className="flex items-center gap-2">
           <button
             onClick={() => printCaseBundle(matter, timeline, documents)}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold shadow-xs transition"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#12172B] dark:bg-[#1B2140] hover:bg-[#1B2140] dark:hover:bg-[#232A50] text-[#F6F3EC] text-[13px] font-semibold transition border border-[rgba(184,147,95,0.3)]"
           >
-            <Printer className="w-4 h-4 text-amber-400" />
+            <Printer className="w-4 h-4 text-[#B8935F]" />
             Print Case Brief
           </button>
 
           {currentUser?.role === 'admin' && (
             <button
               onClick={handleDeleteMatter}
-              className="p-2 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition"
+              className="p-2 rounded-lg text-[#C1554A] hover:bg-[#C1554A]/10 transition"
               title="Delete Matter"
             >
               <Trash2 className="w-4 h-4" />
@@ -236,13 +225,13 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
       </div>
 
       {/* Tabs Navigation */}
-      <div className="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold overflow-x-auto">
+      <div className="flex items-center gap-1 border-b border-[rgba(184,147,95,0.2)] text-[13px] font-semibold overflow-x-auto">
         <button
           onClick={() => setActiveTab('overview')}
           className={`flex items-center gap-2 px-4 py-3 border-b-2 transition ${
             activeTab === 'overview'
-              ? 'border-amber-600 text-amber-600 dark:text-amber-400 font-bold'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              ? 'border-[#B8935F] text-[#B8935F] font-bold'
+              : 'border-transparent text-[#8A90AC] hover:text-[#12172B] dark:hover:text-[#F6F3EC]'
           }`}
         >
           <Gavel className="w-4 h-4" /> Overview & Cause Brief
@@ -252,8 +241,8 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
           onClick={() => setActiveTab('timeline')}
           className={`flex items-center gap-2 px-4 py-3 border-b-2 transition ${
             activeTab === 'timeline'
-              ? 'border-amber-600 text-amber-600 dark:text-amber-400 font-bold'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              ? 'border-[#B8935F] text-[#B8935F] font-bold'
+              : 'border-transparent text-[#8A90AC] hover:text-[#12172B] dark:hover:text-[#F6F3EC]'
           }`}
         >
           <Clock className="w-4 h-4" /> Timeline ({timeline.length})
@@ -263,8 +252,8 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
           onClick={() => setActiveTab('documents')}
           className={`flex items-center gap-2 px-4 py-3 border-b-2 transition ${
             activeTab === 'documents'
-              ? 'border-amber-600 text-amber-600 dark:text-amber-400 font-bold'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              ? 'border-[#B8935F] text-[#B8935F] font-bold'
+              : 'border-transparent text-[#8A90AC] hover:text-[#12172B] dark:hover:text-[#F6F3EC]'
           }`}
         >
           <FileText className="w-4 h-4" /> Document Vault ({documents.length})
@@ -274,8 +263,8 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
           onClick={() => setActiveTab('team')}
           className={`flex items-center gap-2 px-4 py-3 border-b-2 transition ${
             activeTab === 'team'
-              ? 'border-amber-600 text-amber-600 dark:text-amber-400 font-bold'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              ? 'border-[#B8935F] text-[#B8935F] font-bold'
+              : 'border-transparent text-[#8A90AC] hover:text-[#12172B] dark:hover:text-[#F6F3EC]'
           }`}
         >
           <Users className="w-4 h-4" /> Team Access ({matter.teamMembers.length})
@@ -285,8 +274,8 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
           onClick={() => setActiveTab('reminders')}
           className={`flex items-center gap-2 px-4 py-3 border-b-2 transition ${
             activeTab === 'reminders'
-              ? 'border-amber-600 text-amber-600 dark:text-amber-400 font-bold'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              ? 'border-[#B8935F] text-[#B8935F] font-bold'
+              : 'border-transparent text-[#8A90AC] hover:text-[#12172B] dark:hover:text-[#F6F3EC]'
           }`}
         >
           <Bell className="w-4 h-4" /> Hearing Reminders
@@ -302,51 +291,51 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
           <div className="lg:col-span-2 space-y-6">
             
             {/* Core Details Panel */}
-            <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
-              <h3 className="font-serif font-bold text-base text-slate-900 dark:text-slate-100 border-b border-slate-100 dark:border-slate-800 pb-2">
+            <div className="legal-card p-6 space-y-4">
+              <h3 className="font-serif font-semibold text-base text-[#12172B] dark:text-[#F6F3EC] border-b border-[rgba(184,147,95,0.2)] pb-2">
                 Litigation Brief & Jurisdiction
               </h3>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                  <div className="text-slate-400 uppercase font-bold text-[10px]">Presiding Judge</div>
-                  <div className="font-bold text-slate-900 dark:text-slate-100 mt-1">{matter.judge || 'Not Assigned'}</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-[13px]">
+                <div className="p-3 rounded-lg bg-[#EDE8DC]/50 dark:bg-[#12172B] border border-[rgba(184,147,95,0.15)]">
+                  <div className="text-[#8A90AC] uppercase font-mono font-semibold text-[11px]">Presiding Judge</div>
+                  <div className="font-semibold text-[#12172B] dark:text-[#F6F3EC] mt-1">{matter.judge || 'Not Assigned'}</div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                  <div className="text-slate-400 uppercase font-bold text-[10px]">Court Division</div>
-                  <div className="font-bold text-slate-900 dark:text-slate-100 mt-1">{matter.court}</div>
+                <div className="p-3 rounded-lg bg-[#EDE8DC]/50 dark:bg-[#12172B] border border-[rgba(184,147,95,0.15)]">
+                  <div className="text-[#8A90AC] uppercase font-mono font-semibold text-[11px]">Court Division</div>
+                  <div className="font-semibold text-[#12172B] dark:text-[#F6F3EC] mt-1">{matter.court}</div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                  <div className="text-slate-400 uppercase font-bold text-[10px]">Subject Matter / Land Plot</div>
-                  <div className="font-mono font-semibold text-amber-600 dark:text-amber-400 mt-1">{matter.plot || 'N/A'}</div>
+                <div className="p-3 rounded-lg bg-[#EDE8DC]/50 dark:bg-[#12172B] border border-[rgba(184,147,95,0.15)]">
+                  <div className="text-[#8A90AC] uppercase font-mono font-semibold text-[11px]">Subject Matter / Land Plot</div>
+                  <div className="font-mono font-semibold text-[#B8935F] mt-1">{matter.plot || 'N/A'}</div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                  <div className="text-slate-400 uppercase font-bold text-[10px]">Lead Litigation Counsel</div>
-                  <div className="font-bold text-slate-900 dark:text-slate-100 mt-1">{matter.leadLawyerName || matter.leadLawyer}</div>
+                <div className="p-3 rounded-lg bg-[#EDE8DC]/50 dark:bg-[#12172B] border border-[rgba(184,147,95,0.15)]">
+                  <div className="text-[#8A90AC] uppercase font-mono font-semibold text-[11px]">Lead Litigation Counsel</div>
+                  <div className="font-semibold text-[#12172B] dark:text-[#F6F3EC] mt-1">{matter.leadLawyerName || matter.leadLawyer}</div>
                 </div>
               </div>
 
               {/* Parties Block */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-2">
-                <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
-                  <div className="font-bold text-emerald-700 dark:text-emerald-400 uppercase text-[10px] mb-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-[13px] pt-2">
+                <div className="p-4 rounded-lg bg-[#4F8F6B]/10 border border-[#4F8F6B]/25">
+                  <div className="font-bold text-[#4F8F6B] uppercase font-mono text-[11px] mb-1">
                     Claimant(s) / Plaintiff(s)
                   </div>
-                  <ul className="list-disc list-inside space-y-1 font-medium text-slate-800 dark:text-slate-200">
+                  <ul className="list-disc list-inside space-y-1 font-medium text-[#12172B] dark:text-[#F6F3EC]">
                     {matter.plaintiffs.map((p, idx) => (
                       <li key={idx}>{p}</li>
                     ))}
                   </ul>
                 </div>
 
-                <div className="p-4 rounded-xl bg-rose-500/5 border border-rose-500/20">
-                  <div className="font-bold text-rose-700 dark:text-rose-400 uppercase text-[10px] mb-1">
+                <div className="p-4 rounded-lg bg-[#C1554A]/10 border border-[#C1554A]/25">
+                  <div className="font-bold text-[#C1554A] uppercase font-mono text-[11px] mb-1">
                     Defendant(s) / Respondent(s)
                   </div>
-                  <ul className="list-disc list-inside space-y-1 font-medium text-slate-800 dark:text-slate-200">
+                  <ul className="list-disc list-inside space-y-1 font-medium text-[#12172B] dark:text-[#F6F3EC]">
                     {matter.defendants.map((d, idx) => (
                       <li key={idx}>{d}</li>
                     ))}
@@ -356,10 +345,10 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
 
               {/* Case Summary */}
               <div className="pt-2">
-                <div className="font-bold text-xs text-slate-700 dark:text-slate-300 mb-1">
+                <div className="font-semibold text-[13px] text-[#12172B] dark:text-[#F6F3EC] mb-1">
                   Summary Notes & Background
                 </div>
-                <p className="text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-xl border border-slate-100 dark:border-slate-800 leading-relaxed">
+                <p className="text-[13px] text-[#626A84] dark:text-[#8A90AC] bg-[#EDE8DC]/50 dark:bg-[#12172B] p-3.5 rounded-lg border border-[rgba(184,147,95,0.15)] leading-relaxed">
                   {matter.summaryNotes || 'No summary notes provided for this suit.'}
                 </p>
               </div>
@@ -367,41 +356,41 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
             </div>
 
             {/* Statutory Deadline Analysis Card */}
-            <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-              <h3 className="font-serif font-bold text-base text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-amber-600" />
+            <div className="legal-card p-6">
+              <h3 className="font-serif font-semibold text-base text-[#12172B] dark:text-[#F6F3EC] mb-2 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#B8935F]" />
                 Statutory Procedural Deadlines
               </h3>
-              <p className="text-xs text-slate-500 mb-4">
+              <p className="text-[13px] text-[#8A90AC] mb-4">
                 Calculated windows based on filing date ({matter.filingDate}) and court civil rules ({deadlines.courtType}).
               </p>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mb-4">
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10px] text-slate-400 font-bold">Claim Due</div>
-                  <div className="font-semibold text-slate-900 dark:text-slate-100">{deadlines.statementOfClaimDue}</div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[13px] mb-4">
+                <div className="p-3 rounded-lg bg-[#EDE8DC]/50 dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)]">
+                  <div className="text-[11px] text-[#8A90AC] font-mono font-semibold">Claim Due</div>
+                  <div className="font-semibold text-[#12172B] dark:text-[#F6F3EC] mt-0.5">{deadlines.statementOfClaimDue}</div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10px] text-slate-400 font-bold">Defense Due</div>
-                  <div className="font-semibold text-slate-900 dark:text-slate-100">{deadlines.defenseDue}</div>
+                <div className="p-3 rounded-lg bg-[#EDE8DC]/50 dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)]">
+                  <div className="text-[11px] text-[#8A90AC] font-mono font-semibold">Defense Due</div>
+                  <div className="font-semibold text-[#12172B] dark:text-[#F6F3EC] mt-0.5">{deadlines.defenseDue}</div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10px] text-slate-400 font-bold">Reply Due</div>
-                  <div className="font-semibold text-slate-900 dark:text-slate-100">{deadlines.replyDue}</div>
+                <div className="p-3 rounded-lg bg-[#EDE8DC]/50 dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)]">
+                  <div className="text-[11px] text-[#8A90AC] font-mono font-semibold">Reply Due</div>
+                  <div className="font-semibold text-[#12172B] dark:text-[#F6F3EC] mt-0.5">{deadlines.replyDue}</div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                  <div className="text-[10px] text-slate-400 font-bold">PTC Window</div>
-                  <div className="font-semibold text-slate-900 dark:text-slate-100">{deadlines.preTrialConferenceMaxDate}</div>
+                <div className="p-3 rounded-lg bg-[#EDE8DC]/50 dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)]">
+                  <div className="text-[11px] text-[#8A90AC] font-mono font-semibold">PTC Window</div>
+                  <div className="font-semibold text-[#12172B] dark:text-[#F6F3EC] mt-0.5">{deadlines.preTrialConferenceMaxDate}</div>
                 </div>
               </div>
 
-              <div className="space-y-1.5 text-[11px] text-slate-600 dark:text-slate-400">
+              <div className="space-y-1.5 text-[13px] text-[#626A84] dark:text-[#8A90AC]">
                 {deadlines.statutoryNotes.map((note, idx) => (
                   <div key={idx} className="flex items-start gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                    <CheckCircle2 className="w-4 h-4 text-[#B8935F] shrink-0 mt-0.5" />
                     <span>{note}</span>
                   </div>
                 ))}
@@ -414,48 +403,48 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
           <div className="space-y-6">
             
             {/* Hearing Countdown Box */}
-            <div className="p-6 rounded-2xl bg-amber-600 text-white shadow-lg space-y-3">
-              <div className="text-xs font-bold uppercase tracking-wider text-amber-200">
+            <div className="p-6 rounded-xl bg-[#1B2140] text-[#F6F3EC] border border-[#B8935F]/40 shadow-lg space-y-3">
+              <div className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[#B8935F]">
                 Next Court Date
               </div>
-              <div className="text-3xl font-extrabold tracking-tight">
+              <div className="text-3xl font-serif font-bold text-[#F6F3EC]">
                 {matter.nextHearingDate || 'Unscheduled'}
               </div>
-              <div className="text-xs text-amber-100 flex items-center gap-1.5 font-medium">
-                <Gavel className="w-4 h-4" />
-                Purpose: <span className="font-bold underline">{matter.purpose || 'Hearing'}</span>
+              <div className="text-[13px] text-[#8A90AC] flex items-center gap-1.5 font-medium">
+                <Gavel className="w-4 h-4 text-[#B8935F]" />
+                Purpose: <span className="font-bold text-[#F6F3EC]">{matter.purpose || 'Hearing'}</span>
               </div>
-              <div className="pt-2 border-t border-amber-500/40 text-[11px] text-amber-100">
+              <div className="pt-2 border-t border-[rgba(184,147,95,0.2)] text-[13px] text-[#8A90AC]">
                 Appearances: {matter.appearances || 'To be recorded'}
               </div>
             </div>
 
             {/* Quick Actions */}
-            <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
-              <div className="font-bold text-xs text-slate-800 dark:text-slate-200">Matter Controls</div>
+            <div className="legal-card p-5 space-y-3">
+              <div className="font-semibold text-[13px] text-[#12172B] dark:text-[#F6F3EC]">Matter Controls</div>
               
               <button
                 onClick={() => setActiveTab('timeline')}
-                className="w-full py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 text-left flex items-center justify-between"
+                className="w-full py-2.5 px-3 rounded-lg bg-[#EDE8DC] dark:bg-[#12172B] hover:bg-[#E3DDD0] dark:hover:bg-[#1B2140] text-[13px] font-semibold text-[#12172B] dark:text-[#F6F3EC] text-left flex items-center justify-between border border-[rgba(184,147,95,0.2)] transition"
               >
                 <span>Log Court Outcome</span>
-                <Plus className="w-4 h-4 text-amber-600" />
+                <Plus className="w-4 h-4 text-[#B8935F]" />
               </button>
 
               <button
                 onClick={() => setActiveTab('documents')}
-                className="w-full py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 text-left flex items-center justify-between"
+                className="w-full py-2.5 px-3 rounded-lg bg-[#EDE8DC] dark:bg-[#12172B] hover:bg-[#E3DDD0] dark:hover:bg-[#1B2140] text-[13px] font-semibold text-[#12172B] dark:text-[#F6F3EC] text-left flex items-center justify-between border border-[rgba(184,147,95,0.2)] transition"
               >
                 <span>Deposit Pleadings / Exhibit</span>
-                <Upload className="w-4 h-4 text-amber-600" />
+                <Upload className="w-4 h-4 text-[#B8935F]" />
               </button>
 
               <button
                 onClick={() => setActiveTab('reminders')}
-                className="w-full py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 text-left flex items-center justify-between"
+                className="w-full py-2.5 px-3 rounded-lg bg-[#EDE8DC] dark:bg-[#12172B] hover:bg-[#E3DDD0] dark:hover:bg-[#1B2140] text-[13px] font-semibold text-[#12172B] dark:text-[#F6F3EC] text-left flex items-center justify-between border border-[rgba(184,147,95,0.2)] transition"
               >
                 <span>Schedule Hearing Alert</span>
-                <Bell className="w-4 h-4 text-amber-600" />
+                <Bell className="w-4 h-4 text-[#B8935F]" />
               </button>
             </div>
 
@@ -469,17 +458,17 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-serif font-bold text-lg text-slate-900 dark:text-slate-100">
+              <h2 className="font-serif font-semibold text-lg text-[#12172B] dark:text-[#F6F3EC]">
                 Cause List History & Hearing Outcomes
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-[13px] text-[#8A90AC]">
                 Chronological record of court sittings, rulings, filings, and adjourning orders.
               </p>
             </div>
 
             <button
               onClick={() => setShowAddTimeline(!showAddTimeline)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs transition"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#B8935F] hover:bg-[#8C6F49] text-[#12172B] font-bold text-[13px] transition"
             >
               <Plus className="w-4 h-4" /> Log Court Outcome
             </button>
@@ -487,27 +476,27 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
 
           {/* Log New Timeline Event Form */}
           {showAddTimeline && (
-            <form onSubmit={handleAddTimeline} className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-lg space-y-4 text-xs">
-              <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">Log New Court Sitting / Outcome</div>
+            <form onSubmit={handleAddTimeline} className="legal-card p-5 space-y-4 text-[13px]">
+              <div className="font-serif font-semibold text-[#12172B] dark:text-[#F6F3EC] text-base">Log New Court Sitting / Outcome</div>
               
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block font-bold mb-1">Sitting Date</label>
+                  <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Sitting Date</label>
                   <input
                     type="date"
                     required
                     value={eventDate}
                     onChange={(e) => setEventDate(e.target.value)}
-                    className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                    className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)]"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold mb-1">Event Type</label>
+                  <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Event Type</label>
                   <select
                     value={eventType}
                     onChange={(e) => setEventType(e.target.value as TimelineEvent['type'])}
-                    className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
+                    className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)] font-semibold"
                   >
                     <option value="hearing">Hearing Sitting</option>
                     <option value="ruling">Court Ruling</option>
@@ -517,37 +506,37 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
                 </div>
 
                 <div>
-                  <label className="block font-bold mb-1">Sitting Purpose</label>
+                  <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Sitting Purpose</label>
                   <input
                     type="text"
                     value={eventPurpose}
                     onChange={(e) => setEventPurpose(e.target.value)}
                     placeholder="e.g. Mention, P.T.C, Ruling"
-                    className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                    className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)]"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-bold mb-1">Appearances Recorded</label>
+                <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Appearances Recorded</label>
                 <input
                   type="text"
                   value={eventAppearances}
                   onChange={(e) => setEventAppearances(e.target.value)}
                   placeholder="e.g. Chisom Esq. for Claimant, N.O. Egwu Esq. for Defendant"
-                  className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                  className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)]"
                 />
               </div>
 
               <div>
-                <label className="block font-bold mb-1">Sitting Summary & Proceedings Notes</label>
+                <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Sitting Summary & Proceedings Notes</label>
                 <textarea
                   rows={3}
                   required
                   value={eventSummary}
                   onChange={(e) => setEventSummary(e.target.value)}
                   placeholder="Record what transpired in court, witness cross-examination summary, or judge orders..."
-                  className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                  className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)]"
                 />
               </div>
 
@@ -555,13 +544,13 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
                 <button
                   type="button"
                   onClick={() => setShowAddTimeline(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700"
+                  className="px-4 py-2 rounded-lg border border-[rgba(184,147,95,0.3)] bg-[#EDE8DC] dark:bg-[#1B2140] text-[#12172B] dark:text-[#F6F3EC]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-amber-600 text-white font-bold"
+                  className="px-5 py-2 rounded-lg bg-[#B8935F] text-[#12172B] font-bold"
                 >
                   Save Record
                 </button>
@@ -570,33 +559,33 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
           )}
 
           {/* Timeline Feed */}
-          <div className="space-y-4 relative before:absolute before:inset-0 before:left-4 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800">
+          <div className="space-y-4 relative before:absolute before:inset-0 before:left-4 before:w-0.5 before:bg-[rgba(184,147,95,0.3)]">
             {timeline.length === 0 ? (
-              <div className="text-center py-12 text-slate-400 text-xs">No timeline events recorded yet.</div>
+              <div className="text-center py-12 text-[#8A90AC] text-[13px]">No timeline events recorded yet.</div>
             ) : (
               timeline.map((item) => (
                 <div key={item.id} className="relative pl-10">
-                  <div className="absolute left-2 top-2 -translate-x-1/2 w-4 h-4 rounded-full bg-amber-600 ring-4 ring-white dark:ring-slate-900" />
+                  <div className="absolute left-2 top-3 -translate-x-1/2 w-4 h-4 rounded-full bg-[#B8935F] ring-4 ring-[#F6F3EC] dark:ring-[#12172B]" />
                   
-                  <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-2 text-xs">
-                    <div className="flex items-center justify-between text-slate-500">
-                      <span className="font-bold text-amber-600 dark:text-amber-400 font-mono">{item.date}</span>
-                      <span className="uppercase font-bold text-[10px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800">
+                  <div className="legal-card p-4 space-y-2 text-[13px]">
+                    <div className="flex items-center justify-between text-[#8A90AC]">
+                      <span className="font-mono font-bold text-[#B8935F]">{item.date}</span>
+                      <span className="uppercase font-mono font-bold text-[11px] px-2 py-0.5 rounded bg-[#B8935F]/10 text-[#B8935F] border border-[#B8935F]/20">
                         {item.type}
                       </span>
                     </div>
 
-                    <p className="font-medium text-slate-800 dark:text-slate-200 leading-relaxed">
+                    <p className="font-medium text-[#12172B] dark:text-[#F6F3EC] leading-relaxed">
                       {item.summary}
                     </p>
 
                     {item.appearances && (
-                      <div className="text-[11px] text-slate-500 italic bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg">
+                      <div className="text-[13px] text-[#8A90AC] italic bg-[#EDE8DC]/50 dark:bg-[#12172B] p-2 rounded-lg border border-[rgba(184,147,95,0.15)]">
                         Appearances: {item.appearances}
                       </div>
                     )}
 
-                    <div className="text-[10px] text-slate-400">
+                    <div className="text-[11px] text-[#8A90AC]">
                       Recorded by {item.createdByName || item.createdBy}
                     </div>
                   </div>
@@ -612,45 +601,45 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-serif font-bold text-lg text-slate-900 dark:text-slate-100">
+              <h2 className="font-serif font-semibold text-lg text-[#12172B] dark:text-[#F6F3EC]">
                 Document Vault & Exhibits Registry
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-[13px] text-[#8A90AC]">
                 Indexed repository for court pleadings, sworn affidavits, and trial exhibits.
               </p>
             </div>
 
             <button
               onClick={() => setShowAddDoc(!showAddDoc)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs transition"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#B8935F] hover:bg-[#8C6F49] text-[#12172B] font-bold text-[13px] transition"
             >
               <Upload className="w-4 h-4" /> Deposit Document
             </button>
           </div>
 
           {showAddDoc && (
-            <form onSubmit={handleUploadDoc} className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-lg space-y-4 text-xs">
-              <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">Deposit New Court Document</div>
+            <form onSubmit={handleUploadDoc} className="legal-card p-5 space-y-4 text-[13px]">
+              <div className="font-serif font-semibold text-[#12172B] dark:text-[#F6F3EC] text-base">Deposit New Court Document</div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block font-bold mb-1">Document File Name</label>
+                  <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Document File Name</label>
                   <input
                     type="text"
                     required
                     value={fileName}
                     onChange={(e) => setFileName(e.target.value)}
                     placeholder="e.g. Motion_for_Interlocutory_Injunction"
-                    className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono"
+                    className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)] font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold mb-1">Document Category</label>
+                  <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Document Category</label>
                   <select
                     value={docType}
                     onChange={(e) => setDocType(e.target.value as MatterDocument['docType'])}
-                    className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
+                    className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)] font-semibold"
                   >
                     <option value="pleading">Pleading / Writ</option>
                     <option value="motion">Motion / Application</option>
@@ -663,13 +652,13 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
               </div>
 
               <div>
-                <label className="block font-bold mb-1">Description / Stamp Reference</label>
+                <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Description / Stamp Reference</label>
                 <input
                   type="text"
                   value={docDescription}
                   onChange={(e) => setDocDescription(e.target.value)}
                   placeholder="e.g. Certified True Copy filed at High Court Registry"
-                  className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                  className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)]"
                 />
               </div>
 
@@ -677,13 +666,13 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
                 <button
                   type="button"
                   onClick={() => setShowAddDoc(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700"
+                  className="px-4 py-2 rounded-lg border border-[rgba(184,147,95,0.3)] bg-[#EDE8DC] dark:bg-[#1B2140] text-[#12172B] dark:text-[#F6F3EC]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-amber-600 text-white font-bold"
+                  className="px-5 py-2 rounded-lg bg-[#B8935F] text-[#12172B] font-bold"
                 >
                   Deposit Document
                 </button>
@@ -693,18 +682,18 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {documents.length === 0 ? (
-              <div className="col-span-2 text-center py-12 text-slate-400 text-xs">No documents uploaded.</div>
+              <div className="col-span-2 text-center py-12 text-[#8A90AC] text-[13px]">No documents uploaded.</div>
             ) : (
               documents.map((doc) => (
-                <div key={doc.id} className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-start justify-between">
-                  <div className="space-y-1 text-xs">
-                    <div className="font-mono font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-amber-600" />
+                <div key={doc.id} className="legal-card p-4 flex items-start justify-between">
+                  <div className="space-y-1 text-[13px]">
+                    <div className="font-mono font-bold text-[#12172B] dark:text-[#F6F3EC] flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-[#B8935F]" />
                       {doc.fileName}
                     </div>
-                    <div className="text-slate-500 text-[11px]">{doc.description || 'No description provided.'}</div>
-                    <div className="text-[10px] text-slate-400 flex items-center gap-3 pt-1">
-                      <span className="uppercase font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800">{doc.docType}</span>
+                    <div className="text-[#8A90AC] text-[13px]">{doc.description || 'No description provided.'}</div>
+                    <div className="text-[11px] text-[#8A90AC] flex items-center gap-3 pt-1">
+                      <span className="uppercase font-mono font-bold px-2 py-0.5 rounded bg-[#B8935F]/10 text-[#B8935F]">{doc.docType}</span>
                       <span>v{doc.version}</span>
                       <span>{new Date(doc.uploadedAt).toLocaleDateString()}</span>
                     </div>
@@ -712,7 +701,7 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
 
                   <button
                     onClick={() => showToast('Document Download', `Downloading ${doc.fileName}...`, 'info')}
-                    className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-amber-600 hover:text-white transition text-xs font-semibold"
+                    className="px-3 py-1.5 rounded-lg bg-[#EDE8DC] dark:bg-[#12172B] hover:bg-[#B8935F] hover:text-[#12172B] transition text-[13px] font-semibold border border-[rgba(184,147,95,0.25)]"
                   >
                     Download
                   </button>
@@ -728,17 +717,17 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="font-serif font-bold text-lg text-slate-900 dark:text-slate-100">
+              <h2 className="font-serif font-semibold text-lg text-[#12172B] dark:text-[#F6F3EC]">
                 Team Access Control & Permissions
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-[13px] text-[#8A90AC]">
                 Grant or revoke counsel and paralegal access to suit files.
               </p>
             </div>
           </div>
 
-          <form onSubmit={handleInviteTeam} className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3 text-xs">
-            <div className="font-bold text-slate-900 dark:text-slate-100">Invite Team Member / Co-Counsel</div>
+          <form onSubmit={handleInviteTeam} className="legal-card p-5 space-y-3 text-[13px]">
+            <div className="font-semibold text-[#12172B] dark:text-[#F6F3EC]">Invite Team Member / Co-Counsel</div>
             
             <div className="flex flex-col sm:flex-row gap-3">
               <input
@@ -747,13 +736,13 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 placeholder="colleague@lawfirm.com"
-                className="flex-1 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                className="flex-1 p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)]"
               />
 
               <select
                 value={inviteRole}
                 onChange={(e) => setInviteRole(e.target.value as UserRole)}
-                className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
+                className="p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)] font-semibold"
               >
                 <option value="lawyer">Co-Counsel (Lawyer)</option>
                 <option value="paralegal">Paralegal</option>
@@ -762,27 +751,27 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
 
               <button
                 type="submit"
-                className="px-5 py-2.5 rounded-xl bg-amber-600 text-white font-bold"
+                className="px-5 py-2.5 rounded-lg bg-[#B8935F] text-[#12172B] font-bold"
               >
                 Send Invite
               </button>
             </div>
           </form>
 
-          <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
-            <div className="font-bold text-xs text-slate-800 dark:text-slate-200">Authorized Team Members ({matter.teamMembers.length})</div>
+          <div className="legal-card p-5 space-y-3">
+            <div className="font-semibold text-[13px] text-[#12172B] dark:text-[#F6F3EC]">Authorized Team Members ({matter.teamMembers.length})</div>
             
-            <div className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+            <div className="divide-y divide-[rgba(184,147,95,0.15)] text-[13px]">
               {matter.teamMembers.map((uid) => (
                 <div key={uid} className="py-2.5 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <UserCheck className="w-4 h-4 text-emerald-600" />
+                    <UserCheck className="w-4 h-4 text-[#4F8F6B]" />
                     <div>
-                      <div className="font-bold text-slate-800 dark:text-slate-200">{uid}</div>
-                      <div className="text-[10px] text-slate-400">Granted active access to suit</div>
+                      <div className="font-semibold text-[#12172B] dark:text-[#F6F3EC]">{uid}</div>
+                      <div className="text-[11px] text-[#8A90AC]">Granted active access to suit</div>
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                  <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-[#B8935F]/10 text-[#B8935F] border border-[#B8935F]/20">
                     MEMBER
                   </span>
                 </div>
@@ -796,37 +785,37 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
       {activeTab === 'reminders' && (
         <div className="space-y-6">
           <div>
-            <h2 className="font-serif font-bold text-lg text-slate-900 dark:text-slate-100">
+            <h2 className="font-serif font-semibold text-lg text-[#12172B] dark:text-[#F6F3EC]">
               Hearing Alerts & Reminder Schedule
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-[13px] text-[#8A90AC]">
               Configure automated hearing date reminders sent via email and in-app feed.
             </p>
           </div>
 
-          <form onSubmit={handleCreateReminder} className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3 text-xs">
-            <div className="font-bold text-slate-900 dark:text-slate-100">Schedule Alert Notification</div>
+          <form onSubmit={handleCreateReminder} className="legal-card p-5 space-y-3 text-[13px]">
+            <div className="font-semibold text-[#12172B] dark:text-[#F6F3EC]">Schedule Alert Notification</div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block font-bold mb-1">Alert Date & Time</label>
+                <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Alert Date & Time</label>
                 <input
                   type="datetime-local"
                   required
                   value={remindAtDate}
                   onChange={(e) => setRemindAtDate(e.target.value)}
-                  className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                  className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)]"
                 />
               </div>
 
               <div>
-                <label className="block font-bold mb-1">Notification Message</label>
+                <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Notification Message</label>
                 <input
                   type="text"
                   required
                   value={remindMsg}
                   onChange={(e) => setRemindMsg(e.target.value)}
-                  className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                  className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)]"
                 />
               </div>
             </div>
@@ -834,7 +823,7 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
             <div className="flex justify-end">
               <button
                 type="submit"
-                className="px-5 py-2.5 rounded-xl bg-amber-600 text-white font-bold"
+                className="px-5 py-2.5 rounded-lg bg-[#B8935F] text-[#12172B] font-bold"
               >
                 Schedule Hearing Alert
               </button>

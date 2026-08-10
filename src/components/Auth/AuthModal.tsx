@@ -55,34 +55,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
-      <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-6 text-slate-800 dark:text-slate-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#12172B]/80 backdrop-blur-sm">
+      <div className="relative w-full max-w-md rounded-xl bg-[#F6F3EC] dark:bg-[#1B2140] border border-[rgba(184,147,95,0.3)] shadow-2xl p-6 text-[#12172B] dark:text-[#F6F3EC]">
         
-        <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-amber-600 text-white">
-              <Scale className="w-5 h-5" />
+        <div className="flex items-center justify-between pb-4 border-b border-[rgba(184,147,95,0.2)]">
+          <div className="flex items-center gap-3">
+            <div className="icon-box-32">
+              <Scale className="w-4 h-4 text-[#B8935F]" />
             </div>
-            <div className="font-serif font-bold text-lg text-slate-900 dark:text-slate-100">
+            <div className="font-serif font-semibold text-lg text-[#12172B] dark:text-[#F6F3EC]">
               LEGALIA Access
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            className="p-1.5 rounded-lg text-[#8A90AC] hover:text-[#12172B] dark:hover:text-[#F6F3EC] hover:bg-[#EDE8DC] dark:hover:bg-[#12172B] transition"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Mode Switcher */}
-        <div className="mt-4 flex rounded-xl bg-slate-100 dark:bg-slate-800 p-1 text-xs font-bold">
+        <div className="mt-4 flex rounded-lg bg-[#EDE8DC] dark:bg-[#12172B] p-1 text-[13px] font-semibold">
           <button
             onClick={() => setMode('signin')}
-            className={`flex-1 py-2 rounded-lg transition ${
+            className={`flex-1 py-2 rounded-md transition ${
               mode === 'signin'
-                ? 'bg-amber-600 text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400'
+                ? 'bg-[#B8935F] text-[#12172B] shadow-xs'
+                : 'text-[#8A90AC]'
             }`}
           >
             Sign In
@@ -90,10 +90,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
           <button
             onClick={() => setMode('signup')}
-            className={`flex-1 py-2 rounded-lg transition ${
+            className={`flex-1 py-2 rounded-md transition ${
               mode === 'signup'
-                ? 'bg-amber-600 text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400'
+                ? 'bg-[#B8935F] text-[#12172B] shadow-xs'
+                : 'text-[#8A90AC]'
             }`}
           >
             Register Account
@@ -103,7 +103,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         {/* Google Sign in Button */}
         <button
           onClick={handleGoogle}
-          className="mt-4 w-full py-2.5 px-4 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold flex items-center justify-center gap-2 transition"
+          className="mt-4 w-full py-2.5 px-4 rounded-lg border border-[rgba(184,147,95,0.3)] bg-[#EDE8DC] dark:bg-[#12172B] hover:bg-[#E3DDD0] dark:hover:bg-[#12172B]/80 text-[#12172B] dark:text-[#F6F3EC] text-[13px] font-semibold flex items-center justify-center gap-2 transition"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24">
             <path
@@ -126,57 +126,57 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           Continue with Google
         </button>
 
-        <div className="relative my-4 text-center text-[10px] text-slate-400 font-bold uppercase tracking-wider before:absolute before:inset-0 before:top-2 before:border-t before:border-slate-200 dark:before:border-slate-800">
-          <span className="relative bg-white dark:bg-slate-900 px-2">or Email Credentials</span>
+        <div className="relative my-4 text-center text-[11px] text-[#8A90AC] font-bold uppercase tracking-wider before:absolute before:inset-0 before:top-2 before:border-t before:border-[rgba(184,147,95,0.2)]">
+          <span className="relative bg-[#F6F3EC] dark:bg-[#1B2140] px-2">or Email Credentials</span>
         </div>
 
         {/* Email Form */}
-        <form onSubmit={handleSubmit} className="space-y-3 text-xs">
+        <form onSubmit={handleSubmit} className="space-y-3 text-[13px]">
           {mode === 'signup' && (
             <div>
-              <label className="block font-bold mb-1">Full Name</label>
+              <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Full Name</label>
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Barr. Chisom Okeke"
-                className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] text-[#12172B] dark:text-[#F6F3EC] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
               />
             </div>
           )}
 
           <div>
-            <label className="block font-bold mb-1">Email Address</label>
+            <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Email Address</label>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="counsel@lawfirm.com"
-              className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+              className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] text-[#12172B] dark:text-[#F6F3EC] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
             />
           </div>
 
           <div>
-            <label className="block font-bold mb-1">Password</label>
+            <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Password</label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+              className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] text-[#12172B] dark:text-[#F6F3EC] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
             />
           </div>
 
           {mode === 'signup' && (
             <div>
-              <label className="block font-bold mb-1">Select Role</label>
+              <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Select Role</label>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as UserRole)}
-                className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
+                className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] font-bold text-[#12172B] dark:text-[#F6F3EC] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
               >
                 <option value="admin">Managing Partner (Admin)</option>
                 <option value="lawyer">Lead Counsel (Lawyer)</option>
@@ -189,7 +189,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold transition shadow-md mt-2"
+            className="w-full py-2.5 rounded-lg bg-[#B8935F] hover:bg-[#8C6F49] text-[#12172B] font-bold transition shadow-sm mt-2"
           >
             {loading ? 'Processing...' : mode === 'signin' ? 'Sign In' : 'Create Account'}
           </button>

@@ -17,28 +17,28 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
   const { notifications, markRead } = useNotifications();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-[13px]">
       
-      <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
+      <div className="legal-card p-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600">
-            <Bell className="w-6 h-6" />
+          <div className="icon-box-32">
+            <Bell className="w-4 h-4 text-[#B8935F]" />
           </div>
           <div>
-            <h1 className="font-serif font-bold text-2xl text-slate-900 dark:text-slate-100">
+            <h1 className="font-serif font-semibold text-2xl text-[#12172B] dark:text-[#F6F3EC]">
               In-App Notification Feed
             </h1>
-            <p className="text-xs text-slate-500">
+            <p className="text-[13px] text-[#8A90AC]">
               Hearing updates, status changes, and document deposit alerts.
             </p>
           </div>
         </div>
       </div>
 
-      <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
-        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+      <div className="legal-card p-6 space-y-3">
+        <div className="divide-y divide-[rgba(184,147,95,0.15)]">
           {notifications.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-xs">
+            <div className="text-center py-12 text-[#8A90AC] text-[13px]">
               No notifications in feed.
             </div>
           ) : (
@@ -55,33 +55,33 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
                     }
                   }
                 }}
-                className={`py-4 px-3 flex items-start justify-between rounded-xl cursor-pointer transition ${
+                className={`py-4 px-3 flex items-start justify-between rounded-lg cursor-pointer transition ${
                   !n.read
-                    ? 'bg-amber-500/5 font-semibold text-slate-900 dark:text-slate-100'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                    ? 'bg-[#B8935F]/10 font-semibold text-[#12172B] dark:text-[#F6F3EC]'
+                    : 'text-[#12172B]/80 dark:text-[#F6F3EC]/80 hover:bg-[#EDE8DC] dark:hover:bg-[#12172B]/40'
                 }`}
               >
-                <div className="space-y-1 text-xs">
+                <div className="space-y-1 text-[13px]">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                    <span className="font-mono font-bold text-[#B8935F]">
                       {n.suitNumber || 'System Alert'}
                     </span>
                     {!n.read && (
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500 text-white">
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#B8935F] text-[#12172B]">
                         NEW
                       </span>
                     )}
                   </div>
-                  <p className="text-xs leading-relaxed">{n.message}</p>
-                  <div className="text-[10px] text-slate-400 flex items-center gap-1 pt-1">
-                    <Clock className="w-3 h-3" />
+                  <p className="text-[13px] leading-relaxed">{n.message}</p>
+                  <div className="text-[13px] text-[#8A90AC] flex items-center gap-1 pt-1">
+                    <Clock className="w-3.5 h-3.5 text-[#B8935F]" />
                     {new Date(n.createdAt).toLocaleString()}
                   </div>
                 </div>
 
                 <CheckCircle2
                   className={`w-4 h-4 shrink-0 ${
-                    n.read ? 'text-slate-300 dark:text-slate-700' : 'text-amber-600'
+                    n.read ? 'text-[#8A90AC]' : 'text-[#B8935F]'
                   }`}
                 />
               </div>

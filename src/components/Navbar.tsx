@@ -6,14 +6,11 @@ import {
   Moon,
   User,
   LogOut,
-  ChevronDown,
-  ShieldCheck,
-  CheckCircle2,
   Clock,
-  Sparkles,
   Search,
+  Database,
 } from 'lucide-react';
-import { useAuth, DEMO_USERS } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useNotifications } from '../context/NotificationContext';
 
@@ -30,28 +27,27 @@ export const Navbar: React.FC<NavbarProps> = ({
   searchQuery,
   setSearchQuery,
 }) => {
-  const { currentUser, logout, switchDemoUser } = useAuth();
-  const { theme, setTheme, isDark } = useTheme();
+  const { currentUser, logout } = useAuth();
+  const { setTheme, isDark } = useTheme();
   const { notifications, unreadCount, markRead } = useNotifications();
 
   const [showNotifMenu, setShowNotifMenu] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [showDemoMenu, setShowDemoMenu] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md transition-colors duration-200 shadow-xs">
-      <div className="flex items-center justify-between px-4 lg:px-8 h-16">
+    <header className="sticky top-0 z-40 w-full border-b border-[rgba(184,147,95,0.2)] bg-[#FFFFFF]/95 dark:bg-[#12172B]/95 backdrop-blur-md transition-colors duration-200 shadow-xs">
+      <div className="flex items-center justify-between px-4 lg:px-8 h-14">
         
-        {/* Brand logo & mobile badge */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-amber-600 to-amber-700 text-white shadow-md shadow-amber-600/20">
-            <Scale className="w-5 h-5" />
+        {/* Brand logo & title */}
+        <div className="flex items-center gap-2.5">
+          <div className="icon-box-32 border border-[#B8935F]/30 bg-[#B8935F]/15">
+            <Scale className="w-4 h-4 text-[#B8935F]" />
           </div>
-          <div>
-            <span className="font-serif font-bold text-xl text-slate-900 dark:text-slate-100 tracking-tight">
+          <div className="flex items-center gap-2">
+            <span className="font-serif font-semibold text-[16px] text-[#12172B] dark:text-[#F6F3EC] tracking-tight">
               LEGALIA
             </span>
-            <span className="hidden sm:inline-block ml-2 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-800 dark:text-amber-400 border border-amber-500/20">
+            <span className="hidden sm:inline-block text-[11px] font-normal px-2 py-0.5 rounded bg-[#B8935F]/10 text-[#B8935F] border border-[#B8935F]/20">
               Proceedings Manager
             </span>
           </div>
@@ -59,18 +55,18 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Global Search Bar */}
         <div className="hidden md:flex items-center flex-1 max-w-md mx-8 relative">
-          <Search className="w-4 h-4 absolute left-3.5 text-slate-400" />
+          <Search className="w-3.5 h-3.5 absolute left-3 text-[#5C6278] dark:text-[#8A90AC]" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search suit no, defendant, judge, plot..."
-            className="w-full pl-10 pr-12 py-2 text-xs rounded-xl bg-slate-100/80 dark:bg-slate-800/80 text-slate-800 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80 focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:bg-white dark:focus:bg-slate-800 transition"
+            className="w-full pl-9 pr-12 py-1.5 text-[13px] rounded-lg bg-[#F5F2EA] dark:bg-[#1B2140] text-[#12172B] dark:text-[#F6F3EC] border border-[rgba(184,147,95,0.2)] focus:outline-none focus:ring-1 focus:ring-[#B8935F] transition"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 px-1.5 py-0.5 rounded hover:bg-slate-200/60 dark:hover:bg-slate-700"
+              className="absolute right-3 text-[12px] font-medium text-[#5C6278] dark:text-[#8A90AC] hover:text-[#B8935F] px-1.5 py-0.5 rounded"
             >
               Clear
             </button>
@@ -80,58 +76,20 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Right controls */}
         <div className="flex items-center gap-2 lg:gap-3">
 
-          {/* Quick Demo Role Switcher Dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => {
-                setShowDemoMenu(!showDemoMenu);
-                setShowNotifMenu(false);
-                setShowProfileMenu(false);
-              }}
-              className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-amber-500/30 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span className="hidden sm:inline">Role:</span>
-              <span className="capitalize font-bold">{currentUser?.role || 'Guest'}</span>
-              <ChevronDown className="w-3 h-3 opacity-60" />
-            </button>
-
-            {showDemoMenu && (
-              <div className="absolute right-0 mt-2 w-64 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-2 z-50 text-xs">
-                <div className="px-2 py-1.5 font-bold text-slate-500 dark:text-slate-400 text-[11px] uppercase tracking-wider">
-                  Switch Role / Persona
-                </div>
-                {Object.entries(DEMO_USERS).map(([key, u]) => (
-                  <button
-                    key={key}
-                    onClick={() => {
-                      switchDemoUser(key as keyof typeof DEMO_USERS);
-                      setShowDemoMenu(false);
-                    }}
-                    className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between transition ${
-                      currentUser?.uid === u.uid
-                        ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-900 dark:text-amber-300 font-semibold'
-                        : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-                    }`}
-                  >
-                    <div>
-                      <div>{u.name}</div>
-                      <div className="text-[10px] opacity-70 capitalize">{u.role} &bull; {u.organization}</div>
-                    </div>
-                    {currentUser?.uid === u.uid && <CheckCircle2 className="w-4 h-4 text-amber-600 shrink-0" />}
-                  </button>
-                ))}
-              </div>
-            )}
+          {/* Active Firestore Database Indicator Badge */}
+          <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <Database className="w-3.5 h-3.5 text-emerald-500" />
+            <span>Firestore Live</span>
           </div>
 
           {/* Theme Toggle */}
           <button
             onClick={() => setTheme(isDark ? 'light' : 'dark')}
-            className="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            className="p-1.5 rounded-lg text-[#5C6278] dark:text-[#8A90AC] hover:text-[#B8935F] hover:bg-[#B8935F]/10 transition"
             title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
           >
-            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
+            {isDark ? <Sun className="w-4 h-4 text-[#B8935F]" /> : <Moon className="w-4 h-4 text-[#12172B]" />}
           </button>
 
           {/* Notifications Bell */}
@@ -140,24 +98,23 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={() => {
                 setShowNotifMenu(!showNotifMenu);
                 setShowProfileMenu(false);
-                setShowDemoMenu(false);
               }}
-              className="p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition relative"
+              className="p-1.5 rounded-lg text-[#5C6278] dark:text-[#8A90AC] hover:text-[#B8935F] hover:bg-[#B8935F]/10 transition relative"
               title="Notifications"
             >
               <Bell className="w-4 h-4" />
               {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center shadow-sm">
+                <span className="absolute top-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-[#C13B30] text-white text-[10px] font-semibold flex items-center justify-center">
                   {unreadCount}
                 </span>
               )}
             </button>
 
             {showNotifMenu && (
-              <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-3 z-50">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2 mb-2">
-                  <div className="font-bold text-xs text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                    <Bell className="w-3.5 h-3.5 text-amber-600" />
+              <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-xl bg-[#FFFFFF] dark:bg-[#1B2140] border border-[rgba(184,147,95,0.25)] shadow-xl p-3 z-50 text-[13px]">
+                <div className="flex items-center justify-between border-b border-[rgba(184,147,95,0.15)] pb-2 mb-2">
+                  <div className="font-semibold text-[13px] text-[#12172B] dark:text-[#F6F3EC] flex items-center gap-1.5">
+                    <Bell className="w-3.5 h-3.5 text-[#B8935F]" />
                     Hearing & Court Alerts ({notifications.length})
                   </div>
                   <button
@@ -165,7 +122,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       setActiveTab('notifications');
                       setShowNotifMenu(false);
                     }}
-                    className="text-[11px] text-amber-600 dark:text-amber-400 hover:underline font-medium"
+                    className="text-[12px] text-[#B8935F] hover:underline font-medium"
                   >
                     View All
                   </button>
@@ -173,7 +130,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                 <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
                   {notifications.length === 0 ? (
-                    <div className="text-center py-6 text-xs text-slate-400">
+                    <div className="text-center py-6 text-[12px] text-[#5C6278] dark:text-[#8A90AC]">
                       No notifications yet
                     </div>
                   ) : (
@@ -187,20 +144,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                           }
                           setShowNotifMenu(false);
                         }}
-                        className={`p-2.5 rounded-lg text-xs cursor-pointer border transition ${
+                        className={`p-2.5 rounded-lg text-[13px] cursor-pointer border transition ${
                           !n.read
-                            ? 'bg-amber-500/5 border-amber-500/20 text-slate-800 dark:text-slate-100'
-                            : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                            ? 'bg-[#B8935F]/10 border-[#B8935F]/30 text-[#12172B] dark:text-[#F6F3EC]'
+                            : 'bg-[#F5F2EA] dark:bg-[#12172B]/40 border-[rgba(184,147,95,0.15)] text-[#5C6278] dark:text-[#8A90AC]'
                         }`}
                       >
-                        <div className="font-semibold flex items-center justify-between text-slate-900 dark:text-slate-200 mb-0.5">
-                          <span>{n.suitNumber || 'System Notice'}</span>
-                          <span className="text-[10px] text-slate-400 flex items-center gap-0.5">
-                            <Clock className="w-2.5 h-2.5" />
+                        <div className="font-semibold flex items-center justify-between text-[#12172B] dark:text-[#F6F3EC] mb-0.5">
+                          <span className="font-mono text-[12px]">{n.suitNumber || 'System Notice'}</span>
+                          <span className="text-[11px] text-[#5C6278] dark:text-[#8A90AC] flex items-center gap-0.5">
+                            <Clock className="w-3 h-3" />
                             {new Date(n.createdAt).toLocaleDateString()}
                           </span>
                         </div>
-                        <p className="leading-snug">{n.message}</p>
+                        <p className="leading-snug text-[12px]">{n.message}</p>
                       </div>
                     ))
                   )}
@@ -215,29 +172,28 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={() => {
                 setShowProfileMenu(!showProfileMenu);
                 setShowNotifMenu(false);
-                setShowDemoMenu(false);
               }}
-              className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              className="flex items-center gap-2 p-1 rounded-lg hover:bg-[#B8935F]/10 transition"
             >
-              <div className="w-8 h-8 rounded-full bg-slate-800 dark:bg-amber-600 text-white font-bold text-xs flex items-center justify-center">
+              <div className="w-7 h-7 rounded-lg bg-[#B8935F] text-[#12172B] font-bold text-[12px] flex items-center justify-center">
                 {currentUser?.name.charAt(0).toUpperCase() || 'U'}
               </div>
-              <div className="hidden lg:block text-left text-xs">
-                <div className="font-semibold text-slate-800 dark:text-slate-200 leading-tight">
+              <div className="hidden lg:block text-left">
+                <div className="font-medium text-[14px] text-[#12172B] dark:text-[#F6F3EC] leading-none">
                   {currentUser?.name}
                 </div>
-                <div className="text-[10px] text-slate-500 dark:text-slate-400 capitalize">
+                <div className="text-[12px] text-[#5C6278] dark:text-[#8A90AC] font-normal capitalize mt-0.5">
                   {currentUser?.role}
                 </div>
               </div>
             </button>
 
             {showProfileMenu && (
-              <div className="absolute right-0 mt-2 w-56 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-2 z-50 text-xs">
-                <div className="p-2 border-b border-slate-100 dark:border-slate-800 mb-1">
-                  <div className="font-bold text-slate-800 dark:text-slate-200">{currentUser?.name}</div>
-                  <div className="text-slate-400 text-[11px] truncate">{currentUser?.email}</div>
-                  <div className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-500/20">
+              <div className="absolute right-0 mt-2 w-56 rounded-xl bg-[#FFFFFF] dark:bg-[#1B2140] border border-[rgba(184,147,95,0.25)] shadow-xl p-2 z-50 text-[13px]">
+                <div className="p-2 border-b border-[rgba(184,147,95,0.15)] mb-1">
+                  <div className="font-semibold text-[#12172B] dark:text-[#F6F3EC] text-[13px]">{currentUser?.name}</div>
+                  <div className="text-[#5C6278] dark:text-[#8A90AC] text-[11px] truncate">{currentUser?.email}</div>
+                  <div className="inline-block mt-1 text-[11px] font-medium uppercase tracking-wide px-2 py-0.5 rounded bg-[#B8935F]/10 text-[#B8935F] border border-[#B8935F]/20">
                     {currentUser?.role}
                   </div>
                 </div>
@@ -247,15 +203,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                     setActiveTab('settings');
                     setShowProfileMenu(false);
                   }}
-                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center gap-2"
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#B8935F]/10 text-[#12172B] dark:text-[#F6F3EC] flex items-center gap-2"
                 >
-                  <User className="w-3.5 h-3.5" />
+                  <User className="w-3.5 h-3.5 text-[#B8935F]" />
                   Account & Settings
                 </button>
 
                 <button
                   onClick={() => logout()}
-                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 flex items-center gap-2 mt-1"
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#C13B30]/10 text-[#C13B30] flex items-center gap-2 mt-1"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                   Sign Out

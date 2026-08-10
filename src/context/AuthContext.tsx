@@ -7,54 +7,20 @@ import {
   createUserWithEmailAndPassword,
   User as FirebaseUser,
 } from 'firebase/auth';
-import { auth, googleProvider } from '../firebase/config';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, googleProvider, db } from '../firebase/config';
 import { UserProfile, UserRole } from '../types';
 
-export const DEMO_USERS: Record<string, UserProfile> = {
-  admin_demo: {
-    uid: 'admin_demo',
-    name: 'Chief Managing Partner',
-    email: 'admin@lawfirm.com',
-    role: 'admin',
-    matterAccess: ['matter_e968_2022', 'matter_e779_2021', 'matter_e357_2023', 'matter_e569_2022', 'matter_e104_2024'],
-    notifyPrefs: { email: true, inApp: true, dailyDigest: true },
-    theme: 'light',
-    title: 'Senior Partner & Head of Litigation',
-    organization: 'Chisom & Partners Legal Chambers',
-  },
-  lawyer_chisom: {
-    uid: 'lawyer_chisom',
-    name: 'Barr. Chisom Okeke',
-    email: 'chisom@lawfirm.com',
-    role: 'lawyer',
-    matterAccess: ['matter_e968_2022', 'matter_e779_2021', 'matter_e357_2023', 'matter_e569_2022', 'matter_e104_2024'],
-    notifyPrefs: { email: true, inApp: true, dailyDigest: true },
-    theme: 'light',
-    title: 'Senior Advocate / Lead Litigation Counsel',
-    organization: 'Chisom & Partners Legal Chambers',
-  },
-  paralegal_joy: {
-    uid: 'paralegal_joy',
-    name: 'Joy Paralegal',
-    email: 'joy.paralegal@lawfirm.com',
-    role: 'paralegal',
-    matterAccess: ['matter_e968_2022', 'matter_e779_2021', 'matter_e569_2022'],
-    notifyPrefs: { email: false, inApp: true, dailyDigest: false },
-    theme: 'light',
-    title: 'Senior Litigation Paralegal',
-    organization: 'Chisom & Partners Legal Chambers',
-  },
-  client_ibe: {
-    uid: 'client_ibe',
-    name: 'Mr. Ibe Christian Aforka',
-    email: 'ibe.aforka@clientmail.com',
-    role: 'client',
-    matterAccess: ['matter_e968_2022'],
-    notifyPrefs: { email: true, inApp: true, dailyDigest: false },
-    theme: 'light',
-    title: 'Client (Defendant in E/968/2022)',
-    organization: 'Aforka Holdings Ltd',
-  },
+const DEFAULT_COUNSEL_PROFILE: UserProfile = {
+  uid: 'counsel_principal',
+  name: 'Barr. Chisom Okeke',
+  email: 'chisom.okeke@legalia-chambers.org',
+  role: 'admin',
+  matterAccess: ['matter_e968_2022', 'matter_e779_2021', 'matter_e357_2023', 'matter_e569_2022', 'matter_e104_2024'],
+  notifyPrefs: { email: true, inApp: true, dailyDigest: true },
+  theme: 'light',
+  title: 'Principal Counsel & Head of Chambers',
+  organization: 'Legalia Law Practice & Chambers',
 };
 
 interface AuthContextType {
@@ -64,34 +30,47 @@ interface AuthContextType {
   loginWithGoogle: () => Promise<void>;
   loginWithEmail: (e: string, p: string) => Promise<void>;
   signUpWithEmail: (e: string, p: string, name: string, role: UserRole) => Promise<void>;
-  switchDemoUser: (demoKey: keyof typeof DEMO_USERS) => void;
   logout: () => Promise<void>;
-  updateUserProfile: (fields: Partial<UserProfile>) => void;
+  updateUserProfile: (fields: Partial<UserProfile>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(DEMO_USERS.admin_demo);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(DEFAULT_COUNSEL_PROFILE);
   const [loading, setLoading] = useState<boolean>(true);
 
+  // Sync profile from Firestore on auth change
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setFirebaseUser(user);
       if (user) {
-        // Map firebase user to profile
-        setCurrentUser({
-          uid: user.uid,
-          name: user.displayName || user.email?.split('@')[0] || 'Legal Counsel',
-          email: user.email || 'counsel@lawfirm.com',
-          role: 'lawyer',
-          matterAccess: ['matter_e968_2022', 'matter_e779_2021', 'matter_e357_2023', 'matter_e569_2022', 'matter_e104_2024'],
-          notifyPrefs: { email: true, inApp: true, dailyDigest: true },
-          theme: 'light',
-          title: 'Practicing Attorney',
-          organization: 'Law Firm Chambers',
-        });
+        try {
+          const userDocRef = doc(db, 'users', user.uid);
+          const snap = await getDoc(userDocRef);
+          if (snap.exists()) {
+            setCurrentUser(snap.data() as UserProfile);
+          } else {
+            const newProfile: UserProfile = {
+              uid: user.uid,
+              name: user.displayName || user.email?.split('@')[0] || 'Counsel',
+              email: user.email || '',
+              role: 'lawyer',
+              matterAccess: ['matter_e968_2022', 'matter_e779_2021', 'matter_e357_2023', 'matter_e569_2022', 'matter_e104_2024'],
+              notifyPrefs: { email: true, inApp: true, dailyDigest: true },
+              theme: 'light',
+              title: 'Practicing Advocate',
+              organization: 'Legalia Chambers',
+            };
+            await setDoc(userDocRef, newProfile);
+            setCurrentUser(newProfile);
+          }
+        } catch (e) {
+          console.warn('Firestore user profile fetch error:', e);
+        }
+      } else {
+        setCurrentUser(DEFAULT_COUNSEL_PROFILE);
       }
       setLoading(false);
     });
@@ -100,77 +79,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const loginWithGoogle = async () => {
-    try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (err) {
-      console.error('Google Sign in error:', err);
-      throw err;
+    const res = await signInWithPopup(auth, googleProvider);
+    if (res.user) {
+      const userDocRef = doc(db, 'users', res.user.uid);
+      const snap = await getDoc(userDocRef);
+      if (!snap.exists()) {
+        const newProfile: UserProfile = {
+          uid: res.user.uid,
+          name: res.user.displayName || res.user.email?.split('@')[0] || 'Counsel',
+          email: res.user.email || '',
+          role: 'admin',
+          matterAccess: ['matter_e968_2022', 'matter_e779_2021', 'matter_e357_2023', 'matter_e569_2022', 'matter_e104_2024'],
+          notifyPrefs: { email: true, inApp: true, dailyDigest: true },
+          theme: 'light',
+          title: 'Managing Partner',
+          organization: 'Legalia Law Practice',
+        };
+        await setDoc(userDocRef, newProfile);
+        setCurrentUser(newProfile);
+      } else {
+        setCurrentUser(snap.data() as UserProfile);
+      }
     }
   };
 
   const loginWithEmail = async (e: string, p: string) => {
-    try {
-      await signInWithEmailAndPassword(auth, e, p);
-    } catch (err) {
-      console.error('Email sign in error:', err);
-      // Fallback for easy trial
-      setCurrentUser({
-        uid: `user_${Date.now()}`,
-        name: e.split('@')[0],
-        email: e,
-        role: 'lawyer',
-        matterAccess: ['matter_e968_2022', 'matter_e779_2021', 'matter_e357_2023', 'matter_e569_2022', 'matter_e104_2024'],
-        notifyPrefs: { email: true, inApp: true, dailyDigest: true },
-        theme: 'light',
-      });
+    const res = await signInWithEmailAndPassword(auth, e, p);
+    if (res.user) {
+      const userDocRef = doc(db, 'users', res.user.uid);
+      const snap = await getDoc(userDocRef);
+      if (snap.exists()) {
+        setCurrentUser(snap.data() as UserProfile);
+      }
     }
   };
 
   const signUpWithEmail = async (e: string, p: string, name: string, role: UserRole) => {
-    try {
-      const res = await createUserWithEmailAndPassword(auth, e, p);
-      setCurrentUser({
+    const res = await createUserWithEmailAndPassword(auth, e, p);
+    if (res.user) {
+      const newProfile: UserProfile = {
         uid: res.user.uid,
         name: name,
         email: e,
         role: role,
-        matterAccess: ['matter_e968_2022', 'matter_e779_2021', 'matter_e357_2023'],
+        matterAccess: ['matter_e968_2022', 'matter_e779_2021', 'matter_e357_2023', 'matter_e569_2022', 'matter_e104_2024'],
         notifyPrefs: { email: true, inApp: true, dailyDigest: true },
         theme: 'light',
-      });
-    } catch (err) {
-      console.error('Sign up error:', err);
-      setCurrentUser({
-        uid: `user_${Date.now()}`,
-        name: name,
-        email: e,
-        role: role,
-        matterAccess: ['matter_e968_2022', 'matter_e779_2021'],
-        notifyPrefs: { email: true, inApp: true, dailyDigest: true },
-        theme: 'light',
-      });
-    }
-  };
-
-  const switchDemoUser = (demoKey: keyof typeof DEMO_USERS) => {
-    if (DEMO_USERS[demoKey]) {
-      setCurrentUser(DEMO_USERS[demoKey]);
+        title: role === 'admin' ? 'Managing Partner' : 'Counsel',
+        organization: 'Legalia Practice Chambers',
+      };
+      await setDoc(doc(db, 'users', res.user.uid), newProfile);
+      setCurrentUser(newProfile);
     }
   };
 
   const logout = async () => {
-    try {
-      await firebaseSignOut(auth);
-    } catch (e) {
-      console.warn('Signout error:', e);
-    }
-    setCurrentUser(null);
+    await firebaseSignOut(auth);
+    setCurrentUser(DEFAULT_COUNSEL_PROFILE);
     setFirebaseUser(null);
   };
 
-  const updateUserProfile = (fields: Partial<UserProfile>) => {
+  const updateUserProfile = async (fields: Partial<UserProfile>) => {
     if (!currentUser) return;
-    setCurrentUser((prev) => (prev ? { ...prev, ...fields } : null));
+    const updated = { ...currentUser, ...fields };
+    setCurrentUser(updated);
+
+    if (firebaseUser) {
+      try {
+        await setDoc(doc(db, 'users', firebaseUser.uid), fields, { merge: true });
+      } catch (err) {
+        console.warn('Firestore user update error:', err);
+      }
+    }
   };
 
   return (
@@ -182,7 +162,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loginWithGoogle,
         loginWithEmail,
         signUpWithEmail,
-        switchDemoUser,
         logout,
         updateUserProfile,
       }}

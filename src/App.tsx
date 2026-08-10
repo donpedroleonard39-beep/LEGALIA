@@ -55,7 +55,7 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-200">
+    <div className="min-h-screen flex flex-col bg-[#F5F2EA] dark:bg-[#12172B] text-[#12172B] dark:text-[#F6F3EC] font-sans transition-colors duration-200">
       
       {/* Top Navbar */}
       <Navbar

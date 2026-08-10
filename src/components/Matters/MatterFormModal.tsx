@@ -112,6 +112,8 @@ export const MatterFormModal: React.FC<MatterFormModalProps> = ({
             leadLawyer: currentUser?.uid || 'lawyer_chisom',
             leadLawyerName: leadLawyerName.trim(),
             teamMembers: [currentUser?.uid || 'admin_demo', 'lawyer_chisom'],
+            createdBy: currentUser?.uid || 'user_demo',
+            createdByName: currentUser?.name || 'Counsel',
             status,
             filingDate,
             nextHearingDate: nextHearingDate || undefined,
@@ -135,46 +137,46 @@ export const MatterFormModal: React.FC<MatterFormModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm overflow-y-auto">
-      <div className="relative w-full max-w-2xl rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-6 text-slate-800 dark:text-slate-200 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#12172B]/80 backdrop-blur-sm overflow-y-auto">
+      <div className="relative w-full max-w-2xl rounded-xl bg-[#F6F3EC] dark:bg-[#1B2140] border border-[rgba(184,147,95,0.3)] shadow-2xl p-6 text-[#12172B] dark:text-[#F6F3EC] max-h-[90vh] overflow-y-auto">
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600">
-              <Gavel className="w-5 h-5" />
+        <div className="flex items-center justify-between pb-4 border-b border-[rgba(184,147,95,0.2)]">
+          <div className="flex items-center gap-3">
+            <div className="icon-box-32">
+              <Gavel className="w-4 h-4 text-[#B8935F]" />
             </div>
             <div>
-              <h2 className="font-serif font-bold text-lg text-slate-900 dark:text-slate-100">
+              <h2 className="font-serif font-semibold text-lg text-[#12172B] dark:text-[#F6F3EC]">
                 {matterToEdit ? `Edit Suit ${matterToEdit.suitNumber}` : 'Intake New Legal Proceeding'}
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-[13px] text-[#8A90AC]">
                 Enter court cause details, presiding judge, land plot, and parties.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            className="p-2 rounded-lg text-[#8A90AC] hover:text-[#12172B] dark:hover:text-[#F6F3EC] hover:bg-[#EDE8DC] dark:hover:bg-[#12172B] transition"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {errorMessage && (
-          <div className="mt-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-2">
+          <div className="mt-4 p-3 rounded-lg bg-[#C1554A]/10 border border-[#C1554A]/30 text-[#C1554A] text-[13px] flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{errorMessage}</span>
           </div>
         )}
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-xs">
+        <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-[13px]">
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">
-                Suit Number <span className="text-rose-500">*</span>
+              <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">
+                Suit Number <span className="text-[#C1554A]">*</span>
               </label>
               <input
                 type="text"
@@ -182,12 +184,12 @@ export const MatterFormModal: React.FC<MatterFormModalProps> = ({
                 value={suitNumber}
                 onChange={(e) => setSuitNumber(e.target.value)}
                 placeholder="e.g. E/968/2022"
-                className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono font-bold text-amber-600 dark:text-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] font-mono font-bold text-[#B8935F] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
               />
             </div>
 
             <div>
-              <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">
+              <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">
                 Presiding Judge (P. Judge)
               </label>
               <input
@@ -195,14 +197,14 @@ export const MatterFormModal: React.FC<MatterFormModalProps> = ({
                 value={judge}
                 onChange={(e) => setJudge(e.target.value)}
                 placeholder="e.g. Hon. Justice Ajah"
-                className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
               />
             </div>
           </div>
 
           <div>
-            <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">
-              Suit Title / Cause <span className="text-rose-500">*</span>
+            <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">
+              Suit Title / Cause <span className="text-[#C1554A]">*</span>
             </label>
             <input
               type="text"
@@ -210,13 +212,13 @@ export const MatterFormModal: React.FC<MatterFormModalProps> = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Chisom vs. Mr. Ibe Christian Aforka"
-              className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+              className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">
+              <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">
                 Court & Division
               </label>
               <input
@@ -224,12 +226,12 @@ export const MatterFormModal: React.FC<MatterFormModalProps> = ({
                 value={court}
                 onChange={(e) => setCourt(e.target.value)}
                 placeholder="e.g. High Court 3, Enugu Division"
-                className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
               />
             </div>
 
             <div>
-              <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">
+              <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">
                 Plot / Subject Property
               </label>
               <input
@@ -237,14 +239,14 @@ export const MatterFormModal: React.FC<MatterFormModalProps> = ({
                 value={plot}
                 onChange={(e) => setPlot(e.target.value)}
                 placeholder="e.g. S/10 Plot 33"
-                className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-[11px] focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] font-mono text-[13px] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">
+              <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">
                 Plaintiff(s) / Claimant(s) (comma separated)
               </label>
               <input
@@ -252,12 +254,12 @@ export const MatterFormModal: React.FC<MatterFormModalProps> = ({
                 value={plaintiffsText}
                 onChange={(e) => setPlaintiffsText(e.target.value)}
                 placeholder="e.g. Chisom Legal Chambers, Elder Paul Nnamani"
-                className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
               />
             </div>
 
             <div>
-              <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">
+              <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">
                 Defendant(s) / Respondent(s) (comma separated)
               </label>
               <input
@@ -265,14 +267,14 @@ export const MatterFormModal: React.FC<MatterFormModalProps> = ({
                 value={defendantsText}
                 onChange={(e) => setDefendantsText(e.target.value)}
                 placeholder="e.g. Mr. Ibe Christian Aforka, Theodore Anyanwu"
-                className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">
+              <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">
                 Lead Lawyer
               </label>
               <input
@@ -280,18 +282,18 @@ export const MatterFormModal: React.FC<MatterFormModalProps> = ({
                 value={leadLawyerName}
                 onChange={(e) => setLeadLawyerName(e.target.value)}
                 placeholder="e.g. Barr. Chisom Okeke"
-                className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
               />
             </div>
 
             <div>
-              <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">
+              <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">
                 Status
               </label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as MatterStatus)}
-                className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] font-bold focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
               >
                 <option value="active">ACTIVE</option>
                 <option value="adjourned">ADJOURNED</option>
@@ -302,33 +304,33 @@ export const MatterFormModal: React.FC<MatterFormModalProps> = ({
             </div>
 
             <div>
-              <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">
+              <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">
                 Filing Date
               </label>
               <input
                 type="date"
                 value={filingDate}
                 onChange={(e) => setFilingDate(e.target.value)}
-                className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">
+              <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">
                 Next Hearing Date
               </label>
               <input
                 type="date"
                 value={nextHearingDate}
                 onChange={(e) => setNextHearingDate(e.target.value)}
-                className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
               />
             </div>
 
             <div>
-              <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">
+              <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">
                 Hearing Purpose (e.g. P.T.C, Mention)
               </label>
               <input
@@ -336,13 +338,13 @@ export const MatterFormModal: React.FC<MatterFormModalProps> = ({
                 value={purpose}
                 onChange={(e) => setPurpose(e.target.value)}
                 placeholder="e.g. P.T.C, Hearing, Ruling, Further Mention"
-                className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
               />
             </div>
           </div>
 
           <div>
-            <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">
+            <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">
               Appearances Record
             </label>
             <input
@@ -350,12 +352,12 @@ export const MatterFormModal: React.FC<MatterFormModalProps> = ({
               value={appearances}
               onChange={(e) => setAppearances(e.target.value)}
               placeholder="e.g. Chisom Esq. for Claimant, N.O. Egwu Esq. for Defendant"
-              className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+              className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
             />
           </div>
 
           <div>
-            <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">
+            <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">
               Summary Notes
             </label>
             <textarea
@@ -363,23 +365,23 @@ export const MatterFormModal: React.FC<MatterFormModalProps> = ({
               value={summaryNotes}
               onChange={(e) => setSummaryNotes(e.target.value)}
               placeholder="Case background, relief sought, key claims..."
-              className="w-full p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+              className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
             />
           </div>
 
           {/* Submit */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-[rgba(184,147,95,0.2)]">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-slate-700 dark:text-slate-300 font-medium"
+              className="px-4 py-2 rounded-lg border border-[rgba(184,147,95,0.3)] bg-[#EDE8DC] dark:bg-[#12172B] hover:bg-[#E3DDD0] dark:hover:bg-[#1B2140] transition text-[#12172B] dark:text-[#F6F3EC] font-semibold"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-6 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold shadow-md transition disabled:opacity-50 flex items-center gap-2"
+              className="px-6 py-2 rounded-lg bg-[#B8935F] hover:bg-[#8C6F49] text-[#12172B] font-bold shadow-sm transition disabled:opacity-50 flex items-center gap-2"
             >
               {submitting ? 'Registering...' : matterToEdit ? 'Save Changes' : 'Create Suit Record'}
             </button>

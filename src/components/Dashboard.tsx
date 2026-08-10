@@ -23,10 +23,13 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  Legend,
+  CartesianGrid,
 } from 'recharts';
 import { Matter } from '../types';
 import { exportMattersToCsv } from '../utils/csvExport';
+import { DocketStamp } from './common/DocketStamp';
+import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 interface DashboardProps {
   matters: Matter[];
@@ -43,6 +46,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   openNewMatterModal,
   openDeadlineCalcModal,
 }) => {
+  const { currentUser } = useAuth();
+  const { isDark } = useTheme();
+
   // Metrics Calculations
   const totalMatters = matters.length;
 
@@ -70,20 +76,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
     closed: matters.filter((m) => m.status === 'closed').length,
   };
 
-  // Chart Data Preparation
+  // Chart Data Preparation with Exact Color Tokens
   const pieData = [
-    { name: 'Active', value: statusCounts.active, color: '#2563eb' },
-    { name: 'Adjourned', value: statusCounts.adjourned, color: '#d97706' },
-    { name: 'Won', value: statusCounts.won, color: '#16a34a' },
-    { name: 'Lost', value: statusCounts.lost, color: '#dc2626' },
-    { name: 'Closed', value: statusCounts.closed, color: '#64748b' },
+    { name: 'Active', value: statusCounts.active, color: '#B8935F' },
+    { name: 'Adjourned', value: statusCounts.adjourned, color: '#C99A3D' },
+    { name: 'Won', value: statusCounts.won, color: '#4F8F6B' },
+    { name: 'Lost', value: statusCounts.lost, color: '#C1554A' },
+    { name: 'Closed', value: statusCounts.closed, color: '#8A90AC' },
   ].filter((item) => item.value > 0);
 
   // Group by Judge or Court
   const judgeCounts: Record<string, number> = {};
   matters.forEach((m) => {
-    const key = m.judge || 'Unassigned Judge';
-    judgeCounts[key] = (judgeCounts[key] || 0) + 1;
+    let judgeName = m.judge || 'Unassigned Judge';
+    // Shorten surname for clean bar chart labels
+    if (judgeName.includes('Hon. Justice')) {
+      judgeName = judgeName.replace('Hon. Justice', 'Justice').trim();
+    }
+    judgeCounts[judgeName] = (judgeCounts[judgeName] || 0) + 1;
   });
 
   const barData = Object.entries(judgeCounts).map(([judge, count]) => ({
@@ -100,205 +110,228 @@ export const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="space-y-6">
       
-      {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 sm:p-8 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white shadow-xl border border-slate-800/80">
-        <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[11px] font-semibold mb-2">
-            <Gavel className="w-3.5 h-3.5" /> High Court Litigation Suite
-          </div>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight">
-            Litigation Overview & Cause List Dashboard
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
-            Real-time tracking of active suits, presiding judge sittings, statutory deadlines, and court appearances.
-          </p>
+      {/* Functional Header Bar - Single line status & action buttons */}
+      <div className="legal-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2 text-[13px] text-[#5C6278] dark:text-[#8A90AC]">
+          <span className="font-semibold text-[#12172B] dark:text-[#F6F3EC]">
+            {currentUser?.organization || 'Mainland Chambers'}
+          </span>
+          <span>&bull;</span>
+          <span>
+            {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </span>
+          <span>&bull;</span>
+          <span className="font-medium text-[#B8935F]">
+            {upcoming7Days.length} suits scheduled for hearing this week
+          </span>
         </div>
 
-        <div className="flex flex-wrap gap-2.5 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={openNewMatterModal}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white text-xs font-bold shadow-md shadow-amber-600/20 transition transform hover:-translate-y-0.5"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#B8935F] hover:bg-[#8C6F49] text-[#12172B] text-[13px] font-semibold transition"
           >
-            <PlusCircle className="w-4 h-4" />
+            <PlusCircle className="w-3.5 h-3.5" />
             Intake Matter
           </button>
           
           <button
             onClick={() => exportMattersToCsv(matters, 'full_cause_list')}
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-700/80 bg-slate-800/90 hover:bg-slate-700/90 text-slate-200 text-xs font-semibold shadow-xs transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[rgba(184,147,95,0.25)] bg-[#FFFFFF] dark:bg-[#1B2140] hover:bg-[#F0EBE0] dark:hover:bg-[#232A50] text-[#12172B] dark:text-[#F6F3EC] text-[13px] font-medium transition"
           >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+            <FileSpreadsheet className="w-3.5 h-3.5 text-[#2E7D52]" />
             Export CSV
           </button>
         </div>
       </div>
 
-      {/* Metric Cards Row */}
+      {/* Stat Cards Row - 4 across desktop, 2 tablet, 1 mobile */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
-          <div>
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Total Suit Registry
+        {/* Stat 1 */}
+        <div className="legal-card legal-card-hover p-4 flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <div className="icon-box-32">
+              <Gavel className="w-4 h-4" />
             </div>
-            <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 mt-1">
+            <span className="font-mono text-[11px] text-[#5C6278] dark:text-[#8A90AC]">SUITS</span>
+          </div>
+          <div className="mt-2">
+            <div className="text-[20px] font-mono font-semibold text-[#12172B] dark:text-[#F6F3EC]">
               {totalMatters}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1">
-              {statusCounts.active} active &bull; {statusCounts.adjourned} adjourned
+            <div className="text-[12px] font-normal text-[#5C6278] dark:text-[#8A90AC] mt-0.5">
+              Total Suit Registry ({statusCounts.active} active)
             </div>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-            <Gavel className="w-6 h-6" />
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
-          <div>
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Hearings (7 Days)
+        {/* Stat 2 */}
+        <div className="legal-card legal-card-hover p-4 flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <div className="icon-box-32" style={{ color: '#B4781A', backgroundColor: 'rgba(180, 120, 26, 0.12)' }}>
+              <Clock className="w-4 h-4" />
             </div>
-            <div className="text-2xl font-extrabold text-amber-600 dark:text-amber-400 mt-1">
+            <span className="font-mono text-[11px] text-[#B4781A]">7 DAYS</span>
+          </div>
+          <div className="mt-2">
+            <div className="text-[20px] font-mono font-semibold text-[#B4781A]">
               {upcoming7Days.length}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1">
-              Immediate court appearances
+            <div className="text-[12px] font-normal text-[#5C6278] dark:text-[#8A90AC] mt-0.5">
+              Immediate Court Hearings
             </div>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-            <Clock className="w-6 h-6" />
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
-          <div>
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Hearings (30 Days)
+        {/* Stat 3 */}
+        <div className="legal-card legal-card-hover p-4 flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <div className="icon-box-32" style={{ color: '#2E7D52', backgroundColor: 'rgba(46, 125, 82, 0.12)' }}>
+              <CheckCircle2 className="w-4 h-4" />
             </div>
-            <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 mt-1">
+            <span className="font-mono text-[11px] text-[#2E7D52]">30 DAYS</span>
+          </div>
+          <div className="mt-2">
+            <div className="text-[20px] font-mono font-semibold text-[#12172B] dark:text-[#F6F3EC]">
               {upcoming30Days.length}
             </div>
-            <div className="text-[11px] text-slate-500 mt-1">
-              Scheduled cause list dates
+            <div className="text-[12px] font-normal text-[#5C6278] dark:text-[#8A90AC] mt-0.5">
+              Scheduled Cause List Dates
             </div>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-            <CheckCircle2 className="w-6 h-6" />
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
-          <div>
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Case Outcomes
+        {/* Stat 4 */}
+        <div className="legal-card legal-card-hover p-4 flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <div className="icon-box-32" style={{ color: '#2E7D52', backgroundColor: 'rgba(46, 125, 82, 0.12)' }}>
+              <AlertCircle className="w-4 h-4" />
             </div>
-            <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">
+            <span className="font-mono text-[11px] text-[#2E7D52]">OUTCOMES</span>
+          </div>
+          <div className="mt-2">
+            <div className="text-[20px] font-mono font-semibold text-[#2E7D52]">
               {statusCounts.won} Won
             </div>
-            <div className="text-[11px] text-slate-500 mt-1">
+            <div className="text-[12px] font-normal text-[#5C6278] dark:text-[#8A90AC] mt-0.5">
               {statusCounts.closed} closed &bull; {statusCounts.lost} lost
             </div>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-            <AlertCircle className="w-6 h-6" />
           </div>
         </div>
 
       </div>
 
-      {/* Charts & Cause List Row */}
+      {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* Status Breakdown Pie Chart */}
-        <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">
+        {/* Status Breakdown Donut Chart with Legend */}
+        <div className="legal-card p-5 flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-serif text-[16px] font-semibold text-[#12172B] dark:text-[#F6F3EC]">
               Litigation Status Distribution
             </h3>
-            <span className="text-xs text-slate-400">All Registry Matters</span>
+            <span className="font-mono text-[11px] text-[#5C6278] dark:text-[#8A90AC]">REGISTRY</span>
           </div>
 
-          <div className="h-64 w-full">
-            {pieData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={85}
-                    paddingAngle={4}
-                    dataKey="value"
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#0f172a',
-                      borderColor: '#334155',
-                      borderRadius: '8px',
-                      color: '#f8fafc',
-                      fontSize: '12px',
-                    }}
-                  />
-                  <Legend
-                    formatter={(value) => (
-                      <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">
-                        {value}
-                      </span>
-                    )}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                No active registry data to plot
-              </div>
-            )}
+          <div className="flex flex-col sm:flex-row items-center gap-6">
+            <div className="h-48 w-48 shrink-0 relative">
+              {pieData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={45}
+                      outerRadius={75}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: isDark ? '#1B2140' : '#FFFFFF',
+                        borderColor: 'rgba(184, 147, 95, 0.3)',
+                        borderRadius: '8px',
+                        color: isDark ? '#F6F3EC' : '#12172B',
+                        fontSize: '12px',
+                        fontFamily: 'IBM Plex Mono, monospace',
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-[12px] text-[#5C6278] dark:text-[#8A90AC]">
+                  No active registry data
+                </div>
+              )}
+            </div>
+
+            {/* Custom Explicit Legend (Status name + count + color swatch) */}
+            <div className="flex-1 space-y-2 w-full">
+              {[
+                { label: 'Active Suits', count: statusCounts.active, color: '#B8935F' },
+                { label: 'Adjourned / Pending', count: statusCounts.adjourned, color: '#B4781A' },
+                { label: 'Won / Judgments', count: statusCounts.won, color: '#2E7D52' },
+                { label: 'Lost / Dismissed', count: statusCounts.lost, color: '#C13B30' },
+                { label: 'Closed Files', count: statusCounts.closed, color: '#5C6278' },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center justify-between text-[12px]">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-xs shrink-0" style={{ backgroundColor: item.color }} />
+                    <span className="font-medium text-[#12172B] dark:text-[#F6F3EC]">{item.label}</span>
+                  </div>
+                  <span className="font-mono font-semibold text-[#12172B] dark:text-[#F6F3EC]">{item.count}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* Matters by Presiding Judge Bar Chart */}
-        <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">
-              Active Suits by Presiding Judge
+        <div className="legal-card p-5 flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-serif text-[16px] font-semibold text-[#12172B] dark:text-[#F6F3EC]">
+              Suits by Presiding Judge
             </h3>
-            <span className="text-xs text-slate-400">Bench Division</span>
+            <span className="font-mono text-[11px] text-[#5C6278] dark:text-[#8A90AC]">BENCH DIVISION</span>
           </div>
 
-          <div className="h-64 w-full">
+          <div className="h-48 w-full">
             {barData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={barData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+                <BarChart data={barData} margin={{ top: 10, right: 10, left: -20, bottom: 25 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(184, 147, 95, 0.15)" vertical={false} />
                   <XAxis
                     dataKey="judge"
-                    stroke="#94a3b8"
+                    stroke={isDark ? '#8A90AC' : '#5C6278'}
                     fontSize={11}
                     tickLine={false}
                     interval={0}
                     angle={-15}
                     textAnchor="end"
                   />
-                  <YAxis stroke="#94a3b8" fontSize={11} allowDecimals={false} />
+                  <YAxis stroke={isDark ? '#8A90AC' : '#5C6278'} fontSize={11} allowDecimals={false} />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#0f172a',
-                      borderColor: '#334155',
+                      backgroundColor: isDark ? '#1B2140' : '#FFFFFF',
+                      borderColor: 'rgba(184, 147, 95, 0.3)',
                       borderRadius: '8px',
-                      color: '#f8fafc',
+                      color: isDark ? '#F6F3EC' : '#12172B',
                       fontSize: '12px',
+                      fontFamily: 'IBM Plex Mono, monospace',
                     }}
                   />
-                  <Bar dataKey="count" fill="#d97706" radius={[6, 6, 0, 0]} name="Total Matters" />
+                  <Bar dataKey="count" fill="#B8935F" radius={[4, 4, 0, 0]} name="Total Matters" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                No judge assignments recorded
+              <div className="h-full flex items-center justify-center text-[12px] text-[#5C6278] dark:text-[#8A90AC]">
+                No hearings scheduled this week
               </div>
             )}
           </div>
@@ -306,46 +339,51 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       </div>
 
-      {/* Cause List Snapshot Table (Matches provided Cause List Format!) */}
-      <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+      {/* Cause List Snapshot Table */}
+      <div className="legal-card p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
           <div>
-            <h3 className="font-serif font-bold text-base text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <Gavel className="w-4 h-4 text-amber-600" />
+            <h3 className="font-serif text-[18px] font-semibold text-[#12172B] dark:text-[#F6F3EC] flex items-center gap-2">
+              <Gavel className="w-4 h-4 text-[#B8935F]" />
               Court Cause List & Upcoming Appearances
             </h3>
-            <p className="text-xs text-slate-500">
-              Chronological schedule of upcoming hearings, presiding judges, and purpose.
-            </p>
           </div>
 
           <button
             onClick={() => setActiveTab('matters')}
-            className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1"
+            className="text-[12px] font-semibold text-[#B8935F] hover:underline flex items-center gap-1"
           >
-            View Full Registry ({matters.length}) <ChevronRight className="w-3 h-3" />
+            View Full Registry ({matters.length}) <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-xl">
-          <table className="w-full text-left text-xs border-collapse">
+        <div className="overflow-x-auto border border-[rgba(184,147,95,0.2)] rounded-lg">
+          <table className="w-full text-left text-[12px] border-collapse">
             <thead>
-              <tr className="bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
-                <th className="p-3">Suit No.</th>
-                <th className="p-3">Presiding Judge</th>
-                <th className="p-3">Next Hearing</th>
-                <th className="p-3">Purpose</th>
-                <th className="p-3">Lead Lawyer</th>
-                <th className="p-3">Defendant / Respondent</th>
-                <th className="p-3">Plot / Subject</th>
-                <th className="p-3">Status</th>
+              <tr className="bg-[#F5F2EA] dark:bg-[#12172B]/70 text-[#12172B] dark:text-[#F6F3EC] font-semibold uppercase tracking-wider border-b border-[rgba(184,147,95,0.2)]">
+                <th className="p-2.5 font-mono">Suit No.</th>
+                <th className="p-2.5">Presiding Judge</th>
+                <th className="p-2.5">Next Hearing</th>
+                <th className="p-2.5">Purpose</th>
+                <th className="p-2.5">Lead Counsel</th>
+                <th className="p-2.5">Defendant / Respondent</th>
+                <th className="p-2.5">Plot / Subject</th>
+                <th className="p-2.5">Docket Stamp</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-800 dark:text-slate-200 font-sans">
+            <tbody className="divide-y divide-[rgba(184,147,95,0.15)] text-[#12172B] dark:text-[#F6F3EC]">
               {causeListUpcoming.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-6 text-center text-slate-400">
-                    No upcoming court cause list entries found.
+                  <td colSpan={8} className="p-8 text-center text-[#5C6278] dark:text-[#8A90AC]">
+                    <div className="flex flex-col items-center justify-center space-y-2">
+                      <div>No active cause list entries in your practice database.</div>
+                      <button
+                        onClick={openNewMatterModal}
+                        className="px-3.5 py-1.5 rounded-lg bg-[#B8935F] hover:bg-[#8C6F49] text-[#12172B] font-bold text-[12px] transition mt-1"
+                      >
+                        + Intake New Matter
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -356,45 +394,33 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       onSelectMatter(m);
                       setActiveTab('matters');
                     }}
-                    className="hover:bg-amber-500/5 cursor-pointer transition"
+                    className="hover:bg-[#B8935F]/10 cursor-pointer transition"
                   >
-                    <td className="p-3 font-mono font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap">
+                    <td className="p-2.5 font-mono font-semibold text-[#B8935F] whitespace-nowrap">
                       {m.suitNumber}
                     </td>
-                    <td className="p-3 font-medium whitespace-nowrap">
+                    <td className="p-2.5 font-medium whitespace-nowrap">
                       {m.judge || 'Unassigned'}
                     </td>
-                    <td className="p-3 font-semibold whitespace-nowrap text-slate-900 dark:text-slate-100">
+                    <td className="p-2.5 font-semibold whitespace-nowrap font-mono text-[#12172B] dark:text-[#F6F3EC]">
                       {m.nextHearingDate || 'Unscheduled'}
                     </td>
-                    <td className="p-3 font-medium whitespace-nowrap">
-                      <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px]">
+                    <td className="p-2.5 font-medium whitespace-nowrap">
+                      <span className="px-2 py-0.5 rounded bg-[#B8935F]/10 border border-[#B8935F]/20 text-[11px]">
                         {m.purpose || 'Hearing'}
                       </span>
                     </td>
-                    <td className="p-3 whitespace-nowrap">
-                      {m.leadLawyerName || 'Chisom'}
+                    <td className="p-2.5 whitespace-nowrap">
+                      {m.leadLawyerName || 'Counsel'}
                     </td>
-                    <td className="p-3 font-medium max-w-xs truncate">
+                    <td className="p-2.5 font-medium max-w-xs truncate">
                       {m.defendants.join(', ') || 'N/A'}
                     </td>
-                    <td className="p-3 max-w-xs truncate font-mono text-[11px] text-slate-500">
+                    <td className="p-2.5 max-w-xs truncate font-mono text-[11px] text-[#5C6278] dark:text-[#8A90AC]">
                       {m.plot || '-'}
                     </td>
-                    <td className="p-3 whitespace-nowrap">
-                      <span
-                        className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
-                          m.status === 'active'
-                            ? 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
-                            : m.status === 'adjourned'
-                            ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
-                            : m.status === 'won'
-                            ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
-                            : 'bg-slate-500/10 text-slate-600 border border-slate-500/20'
-                        }`}
-                      >
-                        {m.status}
-                      </span>
+                    <td className="p-2.5 whitespace-nowrap">
+                      <DocketStamp status={m.status} size="sm" />
                     </td>
                   </tr>
                 ))
@@ -409,50 +435,50 @@ export const Dashboard: React.FC<DashboardProps> = ({
         
         <button
           onClick={() => setActiveTab('conflict')}
-          className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-amber-500/40 text-left transition flex items-center justify-between"
+          className="legal-card legal-card-hover p-4 text-left flex items-center justify-between"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 flex items-center justify-center">
-              <ShieldAlert className="w-5 h-5" />
+            <div className="icon-box-32" style={{ color: '#C1554A', backgroundColor: 'rgba(193, 85, 74, 0.12)' }}>
+              <ShieldAlert className="w-4 h-4" />
             </div>
             <div>
-              <div className="font-bold text-xs text-slate-900 dark:text-slate-100">Conflict Checker</div>
-              <div className="text-[11px] text-slate-500">Scan parties & plots before intake</div>
+              <div className="font-semibold text-[13px] text-[#12172B] dark:text-[#F6F3EC]">Conflict Checker</div>
+              <div className="text-[13px] text-[#8A90AC]">Scan parties & plots before intake</div>
             </div>
           </div>
-          <ChevronRight className="w-4 h-4 text-slate-400" />
+          <ChevronRight className="w-4 h-4 text-[#8A90AC]" />
         </button>
 
         <button
           onClick={openDeadlineCalcModal}
-          className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-amber-500/40 text-left transition flex items-center justify-between"
+          className="legal-card legal-card-hover p-4 text-left flex items-center justify-between"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
-              <Calculator className="w-5 h-5" />
+            <div className="icon-box-32">
+              <Calculator className="w-4 h-4" />
             </div>
             <div>
-              <div className="font-bold text-xs text-slate-900 dark:text-slate-100">Statutory Calculator</div>
-              <div className="text-[11px] text-slate-500">Calculate pleading & PTC windows</div>
+              <div className="font-semibold text-[13px] text-[#12172B] dark:text-[#F6F3EC]">Statutory Calculator</div>
+              <div className="text-[13px] text-[#8A90AC]">Calculate pleading & PTC windows</div>
             </div>
           </div>
-          <ChevronRight className="w-4 h-4 text-slate-400" />
+          <ChevronRight className="w-4 h-4 text-[#8A90AC]" />
         </button>
 
         <button
           onClick={() => setActiveTab('reminders')}
-          className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-amber-500/40 text-left transition flex items-center justify-between"
+          className="legal-card legal-card-hover p-4 text-left flex items-center justify-between"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center">
-              <Clock className="w-5 h-5" />
+            <div className="icon-box-32" style={{ color: '#C99A3D', backgroundColor: 'rgba(201, 154, 61, 0.12)' }}>
+              <Clock className="w-4 h-4" />
             </div>
             <div>
-              <div className="font-bold text-xs text-slate-900 dark:text-slate-100">Hearing Reminders</div>
-              <div className="text-[11px] text-slate-500">Set email & in-app alerts</div>
+              <div className="font-semibold text-[13px] text-[#12172B] dark:text-[#F6F3EC]">Hearing Reminders</div>
+              <div className="text-[13px] text-[#8A90AC]">Set email & in-app alerts</div>
             </div>
           </div>
-          <ChevronRight className="w-4 h-4 text-slate-400" />
+          <ChevronRight className="w-4 h-4 text-[#8A90AC]" />
         </button>
 
       </div>

@@ -1,8 +1,44 @@
 import React, { useState } from 'react';
 import { Users, ShieldCheck, Lock, CheckCircle2, XCircle, Plus, Mail } from 'lucide-react';
 import { Matter, UserProfile, UserRole } from '../../types';
-import { DEMO_USERS, useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
+
+const INITIAL_CHAMBERS_TEAM: UserProfile[] = [
+  {
+    uid: 'counsel_principal',
+    name: 'Barr. Chisom Okeke',
+    email: 'chisom.okeke@legalia-chambers.org',
+    role: 'admin',
+    matterAccess: ['matter_e968_2022', 'matter_e779_2021', 'matter_e357_2023', 'matter_e569_2022', 'matter_e104_2024'],
+    notifyPrefs: { email: true, inApp: true, dailyDigest: true },
+    theme: 'light',
+    title: 'Principal Counsel',
+    organization: 'Legalia Chambers',
+  },
+  {
+    uid: 'lawyer_associate',
+    name: 'Barr. Nnamdi Egwu',
+    email: 'nnamdi.egwu@legalia-chambers.org',
+    role: 'lawyer',
+    matterAccess: ['matter_e968_2022', 'matter_e779_2021', 'matter_e357_2023'],
+    notifyPrefs: { email: true, inApp: true, dailyDigest: true },
+    theme: 'light',
+    title: 'Senior Associate Counsel',
+    organization: 'Legalia Chambers',
+  },
+  {
+    uid: 'paralegal_lead',
+    name: 'Joy Amadi',
+    email: 'joy.amadi@legalia-chambers.org',
+    role: 'paralegal',
+    matterAccess: ['matter_e968_2022', 'matter_e779_2021'],
+    notifyPrefs: { email: false, inApp: true, dailyDigest: false },
+    theme: 'light',
+    title: 'Head Paralegal',
+    organization: 'Legalia Chambers',
+  },
+];
 
 interface TeamManagerProps {
   matters: Matter[];
@@ -12,7 +48,7 @@ export const TeamManager: React.FC<TeamManagerProps> = ({ matters }) => {
   const { currentUser } = useAuth();
   const { showToast } = useNotifications();
 
-  const [usersList, setUsersList] = useState<UserProfile[]>(Object.values(DEMO_USERS));
+  const [usersList, setUsersList] = useState<UserProfile[]>(INITIAL_CHAMBERS_TEAM);
   const [selectedUserUid, setSelectedUserUid] = useState<string>(usersList[0]?.uid || '');
 
   const [inviteEmail, setInviteEmail] = useState('');
@@ -60,19 +96,19 @@ export const TeamManager: React.FC<TeamManagerProps> = ({ matters }) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-[13px]">
       
       {/* Header */}
-      <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+      <div className="legal-card p-6">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600">
-            <Users className="w-6 h-6" />
+          <div className="icon-box-32">
+            <Users className="w-4 h-4 text-[#B8935F]" />
           </div>
           <div>
-            <h1 className="font-serif font-bold text-2xl text-slate-900 dark:text-slate-100">
+            <h1 className="font-serif font-semibold text-2xl text-[#12172B] dark:text-[#F6F3EC]">
               Team & Granular Access Control
             </h1>
-            <p className="text-xs text-slate-500">
+            <p className="text-[13px] text-[#8A90AC]">
               Admin management panel: Assign counsel roles and toggle per-matter suit access.
             </p>
           </div>
@@ -80,8 +116,8 @@ export const TeamManager: React.FC<TeamManagerProps> = ({ matters }) => {
       </div>
 
       {/* Invite Box */}
-      <form onSubmit={handleSendInvite} className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3 text-xs">
-        <div className="font-bold text-slate-900 dark:text-slate-100">Invite New Firm Counsel / Paralegal</div>
+      <form onSubmit={handleSendInvite} className="legal-card p-5 space-y-3">
+        <div className="font-semibold text-[#12172B] dark:text-[#F6F3EC]">Invite New Firm Counsel / Paralegal</div>
         
         <div className="flex flex-col sm:flex-row gap-3">
           <input
@@ -90,13 +126,13 @@ export const TeamManager: React.FC<TeamManagerProps> = ({ matters }) => {
             value={inviteEmail}
             onChange={(e) => setInviteEmail(e.target.value)}
             placeholder="colleague@lawfirm.com"
-            className="flex-1 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+            className="flex-1 p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] text-[#12172B] dark:text-[#F6F3EC] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
           />
 
           <select
             value={inviteRole}
             onChange={(e) => setInviteRole(e.target.value as UserRole)}
-            className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold"
+            className="p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] font-bold text-[#12172B] dark:text-[#F6F3EC] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
           >
             <option value="admin">Managing Partner (Admin)</option>
             <option value="lawyer">Lead Counsel (Lawyer)</option>
@@ -106,7 +142,7 @@ export const TeamManager: React.FC<TeamManagerProps> = ({ matters }) => {
 
           <button
             type="submit"
-            className="px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold transition"
+            className="px-6 py-2.5 rounded-lg bg-[#B8935F] hover:bg-[#8C6F49] text-[#12172B] font-bold transition shadow-sm"
           >
             Send Invite
           </button>
@@ -117,23 +153,23 @@ export const TeamManager: React.FC<TeamManagerProps> = ({ matters }) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* User List Column */}
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
-          <div className="font-bold text-xs uppercase text-slate-400">Firm Personnel</div>
+        <div className="legal-card p-5 space-y-3">
+          <div className="font-semibold text-xs uppercase text-[#8A90AC]">Firm Personnel</div>
           
-          <div className="space-y-2 text-xs">
+          <div className="space-y-2">
             {usersList.map((u) => (
               <button
                 key={u.uid}
                 onClick={() => setSelectedUserUid(u.uid)}
-                className={`w-full text-left p-3 rounded-xl border transition ${
+                className={`w-full text-left p-3 rounded-lg border transition ${
                   selectedUserUid === u.uid
-                    ? 'bg-amber-500/10 border-amber-500/40 text-amber-900 dark:text-amber-300 font-bold'
-                    : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300'
+                    ? 'bg-[#B8935F]/15 border-[#B8935F] text-[#12172B] dark:text-[#F6F3EC] font-semibold'
+                    : 'bg-[#EDE8DC] dark:bg-[#12172B]/50 border-[rgba(184,147,95,0.15)] text-[#12172B] dark:text-[#8A90AC]'
                 }`}
               >
                 <div className="font-semibold">{u.name}</div>
-                <div className="text-[10px] text-slate-400 capitalize">{u.role} &bull; {u.email}</div>
-                <div className="text-[10px] text-amber-600 font-bold mt-1">
+                <div className="text-[13px] text-[#8A90AC] capitalize">{u.role} &bull; {u.email}</div>
+                <div className="text-[13px] text-[#B8935F] font-semibold mt-1">
                   Access: {u.matterAccess.length} Suit(s)
                 </div>
               </button>
@@ -143,17 +179,17 @@ export const TeamManager: React.FC<TeamManagerProps> = ({ matters }) => {
 
         {/* Access Matrix Column */}
         {selectedUser && (
-          <div className="lg:col-span-2 p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 text-xs">
-            <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="font-bold text-sm text-slate-900 dark:text-slate-100">
+          <div className="lg:col-span-2 legal-card p-6 space-y-4">
+            <div className="border-b border-[rgba(184,147,95,0.2)] pb-3">
+              <div className="font-semibold text-sm text-[#12172B] dark:text-[#F6F3EC]">
                 Granted Suits for {selectedUser.name} ({selectedUser.role.toUpperCase()})
               </div>
-              <div className="text-slate-400 text-xs">
+              <div className="text-[#8A90AC] text-[13px]">
                 Toggle access switches to grant or revoke suit visibility.
               </div>
             </div>
 
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            <div className="divide-y divide-[rgba(184,147,95,0.15)]">
               {matters.map((m) => {
                 const hasAccess = selectedUser.matterAccess.includes(m.id);
                 return (
@@ -162,23 +198,23 @@ export const TeamManager: React.FC<TeamManagerProps> = ({ matters }) => {
                     className="py-3 flex items-center justify-between"
                   >
                     <div>
-                      <div className="font-mono font-bold text-amber-600 dark:text-amber-400">
+                      <div className="font-mono font-bold text-[#B8935F]">
                         {m.suitNumber}
                       </div>
-                      <div className="font-semibold text-slate-800 dark:text-slate-200">
+                      <div className="font-semibold text-[#12172B] dark:text-[#F6F3EC]">
                         {m.title}
                       </div>
-                      <div className="text-[10px] text-slate-400">
+                      <div className="text-[13px] text-[#8A90AC]">
                         Judge: {m.judge} &bull; Plot: {m.plot || 'N/A'}
                       </div>
                     </div>
 
                     <button
                       onClick={() => toggleMatterAccess(m.id)}
-                      className={`px-4 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 ${
+                      className={`px-4 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
                         hasAccess
-                          ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/30'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700'
+                          ? 'bg-[#4F8F6B]/15 text-[#4F8F6B] border border-[#4F8F6B]/30'
+                          : 'bg-[#EDE8DC] dark:bg-[#12172B] text-[#8A90AC] border border-[rgba(184,147,95,0.2)]'
                       }`}
                     >
                       {hasAccess ? (

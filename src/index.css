@@ -1,18 +1,154 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   :root {
-    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-serif: 'Cormorant Garamond', Georgia, Cambria, 'Times New Roman', serif;
+    --ink: #12172B;
+    --ink-raised: #1B2140;
+    --paper: #F5F2EA;
+    --paper-card: #FFFFFF;
+    --brass: #B8935F;
+    --brass-dim: #8C6F49;
+    --verdict-green: #2E7D52;
+    --caution-amber: #B4781A;
+    --alert-red: #C13B30;
+    --ink-muted: #5C6278;
+
+    --font-serif: 'Source Serif 4', Georgia, serif;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+
+    /* Light Mode default assignments */
+    --bg-base: #F5F2EA;
+    --bg-surface: #FFFFFF;
+    --bg-surface-hover: #F0EBE0;
+    --text-main: #12172B;
+    --text-muted: #5C6278;
+    --border-subtle: rgba(184, 147, 95, 0.22);
+    --card-shadow: 0 1px 4px rgba(18, 23, 43, 0.06);
+  }
+
+  .dark {
+    /* Dark Mode assignments */
+    --bg-base: #12172B;
+    --bg-surface: #1B2140;
+    --bg-surface-hover: #232A50;
+    --text-main: #F6F3EC;
+    --text-muted: #8A90AC;
+    --border-subtle: rgba(184, 147, 95, 0.2);
+    --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   }
 
   body {
+    background-color: var(--bg-base);
+    color: var(--text-main);
     font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.5;
   }
 
   h1, h2, h3, .font-serif-title {
     font-family: var(--font-serif);
+    font-weight: 600;
   }
+
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+}
+
+/* Legal Card Elevation & Radius Standards */
+.legal-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+  transition: transform 150ms ease-out, border-color 150ms ease-out, box-shadow 150ms ease-out;
+}
+
+.legal-card-hover:hover {
+  transform: translateY(-2px);
+  border-color: rgba(184, 147, 95, 0.4);
+}
+
+.legal-hero-panel {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-left: 4px solid var(--brass);
+  border-radius: 20px;
+  box-shadow: var(--card-shadow);
+}
+
+/* Docket Stamp Motif */
+.docket-stamp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 8px;
+  border-width: 1.5px;
+  border-style: solid;
+  white-space: nowrap;
+}
+
+.docket-stamp-sm {
+  font-size: 11px;
+  padding: 2px 8px;
+  line-height: 1.3;
+}
+
+.docket-stamp-md {
+  font-size: 13px;
+  padding: 4px 12px;
+  line-height: 1.4;
+}
+
+.docket-stamp-lg {
+  font-size: 14px;
+  padding: 6px 16px;
+  line-height: 1.5;
+}
+
+/* Docket Stamp Colors */
+.docket-stamp-active {
+  color: var(--brass);
+  border-color: var(--brass);
+  background-color: rgba(184, 147, 95, 0.1);
+}
+
+.docket-stamp-won {
+  color: var(--verdict-green);
+  border-color: var(--verdict-green);
+  background-color: rgba(79, 143, 107, 0.1);
+}
+
+.docket-stamp-adjourned, .docket-stamp-pending {
+  color: var(--caution-amber);
+  border-color: var(--caution-amber);
+  background-color: rgba(201, 154, 61, 0.1);
+}
+
+.docket-stamp-lost, .docket-stamp-urgent {
+  color: var(--alert-red);
+  border-color: var(--alert-red);
+  background-color: rgba(193, 85, 74, 0.1);
+}
+
+/* Icon Container 32px Standard */
+.icon-box-32 {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background-color: rgba(184, 147, 95, 0.12);
+  color: var(--brass);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 /* Custom refined scrollbar for legal tables & drawers */
@@ -26,10 +162,11 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.3);
+  background: rgba(184, 147, 95, 0.25);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.5);
+  background: rgba(184, 147, 95, 0.45);
 }
+

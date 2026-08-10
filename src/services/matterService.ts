@@ -30,49 +30,66 @@ const REMINDERS_COLLECTION = 'reminders';
 const NOTIFICATIONS_COLLECTION = 'notifications';
 const USERS_COLLECTION = 'users';
 
-// Initialize memory seed state for smooth fallback if Firestore collections are empty
-let localMattersStore: Matter[] = [...INITIAL_MATTERS];
-let localTimelineStore: Record<string, TimelineEvent[]> = { ...INITIAL_TIMELINE_EVENTS };
-let localDocsStore: Record<string, MatterDocument[]> = { ...INITIAL_DOCUMENTS };
+// Initialize memory state as empty (no demo placeholders)
+let localMattersStore: Matter[] = [];
+let localTimelineStore: Record<string, TimelineEvent[]> = {};
+let localDocsStore: Record<string, MatterDocument[]> = {};
 let localRemindersStore: Reminder[] = [];
-let localNotificationsStore: AppNotification[] = [
-  {
-    id: 'notif_1',
-    userId: 'admin_demo',
-    matterId: 'matter_e968_2022',
-    suitNumber: 'E/968/2022',
-    type: 'hearing_upcoming',
-    message: 'Upcoming Hearing in E/968/2022 (Chisom vs. Mr. Ibe) on 2026-10-26 (P.T.C).',
-    read: false,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'notif_2',
-    userId: 'admin_demo',
-    matterId: 'matter_e779_2021',
-    suitNumber: 'E/779/2021',
-    type: 'status_change',
-    message: 'Matter E/779/2021 status changed to ADJOURNED by Barr. Chisom Okeke.',
-    read: true,
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-  },
+let localNotificationsStore: AppNotification[] = [];
+
+// Demo IDs to automatically purge from Firestore if present
+const DEMO_MATTER_IDS = [
+  'matter_e968_2022',
+  'matter_e779_2021',
+  'matter_e357_2023',
+  'matter_e569_2022',
+  'matter_e104_2024',
 ];
 
 export async function fetchAllMatters(userId?: string, role?: string): Promise<Matter[]> {
   try {
     const querySnapshot = await getDocs(collection(db, MATTERS_COLLECTION));
     if (!querySnapshot.empty) {
-      const docsData: Matter[] = [];
+      const realMatters: Matter[] = [];
+      const purgePromises: Promise<void>[] = [];
+
       querySnapshot.forEach((d) => {
-        docsData.push({ id: d.id, ...d.data() } as Matter);
+        const data = d.data() as Matter;
+        // Check if document is a placeholder demo suit
+        if (DEMO_MATTER_IDS.includes(d.id) || data.createdBy === 'admin_demo') {
+          // Delete placeholder from Firestore permanently
+          purgePromises.push(deleteDoc(doc(db, MATTERS_COLLECTION, d.id)).catch(() => {}));
+        } else {
+          realMatters.push({ id: d.id, ...data });
+        }
       });
-      localMattersStore = docsData;
-      return docsData;
+
+      if (purgePromises.length > 0) {
+        await Promise.all(purgePromises);
+        console.log(`Purged ${purgePromises.length} placeholder demo suit(s) from Firestore.`);
+      }
+
+      localMattersStore = realMatters;
+      return realMatters;
     }
   } catch (err) {
-    console.warn('Firestore fetch failed, returning active memory store:', err);
+    console.warn('Firestore fetch notice:', err);
   }
   return localMattersStore;
+}
+
+export async function clearAllMatters(): Promise<void> {
+  try {
+    const querySnapshot = await getDocs(collection(db, MATTERS_COLLECTION));
+    const deletePromises: Promise<void>[] = [];
+    querySnapshot.forEach((d) => {
+      deletePromises.push(deleteDoc(doc(db, MATTERS_COLLECTION, d.id)));
+    });
+    await Promise.all(deletePromises);
+  } catch (err) {
+    console.warn('Firestore clear error:', err);
+  }
+  localMattersStore = [];
 }
 
 export async function fetchMatterById(id: string): Promise<Matter | null> {
