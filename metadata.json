@@ -1,0 +1,6 @@
+{
+  "name": "Legal Proceedings Manager",
+  "description": "Comprehensive legal proceedings manager for tracking matters, court hearing schedules, team access, document vault, and reminders.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
