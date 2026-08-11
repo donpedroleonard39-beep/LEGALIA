@@ -1,5 +1,23 @@
 import { Matter, TimelineEvent, MatterDocument } from '../types';
 
+// Every field below can be edited by any team member on the matter, so it
+// must be escaped before landing in printWindow.document.write() - otherwise
+// a value like `<script>...</script>` typed into, say, Summary Notes would
+// execute in the browser of the next person who opens the print view.
+function escapeHtml(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeJoin(values: string[], sep: string): string {
+  return values.map(escapeHtml).join(sep);
+}
+
 export function printCaseBundle(matter: Matter, timeline: TimelineEvent[], documents: MatterDocument[]) {
   const printWindow = window.open('', '_blank', 'width=900,height=1000');
   if (!printWindow) return;
@@ -8,7 +26,7 @@ export function printCaseBundle(matter: Matter, timeline: TimelineEvent[], docum
     <!DOCTYPE html>
     <html>
       <head>
-        <title>Case Brief & Cause List Bundle - ${matter.suitNumber}</title>
+        <title>Case Brief & Cause List Bundle - ${escapeHtml(matter.suitNumber)}</title>
         <style>
           body { font-family: 'Times New Roman', Times, serif; line-height: 1.5; color: #111; padding: 40px; }
           .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 25px; }
@@ -35,50 +53,50 @@ export function printCaseBundle(matter: Matter, timeline: TimelineEvent[], docum
         </div>
 
         <div class="header">
-          <div class="title">IN THE ${matter.court.toUpperCase()}</div>
-          <div class="subtitle">SUIT NO: ${matter.suitNumber}</div>
+          <div class="title">IN THE ${escapeHtml(matter.court.toUpperCase())}</div>
+          <div class="subtitle">SUIT NO: ${escapeHtml(matter.suitNumber)}</div>
         </div>
 
         <div class="grid">
           <div class="box">
             <div class="box-title">CLAIMANT(S) / PLAINTIFF(S)</div>
-            <div class="value">${matter.plaintiffs.join('<br>') || 'N/A'}</div>
+            <div class="value">${escapeJoin(matter.plaintiffs, '<br>') || 'N/A'}</div>
           </div>
           <div class="box">
             <div class="box-title">DEFENDANT(S) / RESPONDENT(S)</div>
-            <div class="value">${matter.defendants.join('<br>') || 'N/A'}</div>
+            <div class="value">${escapeJoin(matter.defendants, '<br>') || 'N/A'}</div>
           </div>
         </div>
 
         <div class="grid">
           <div class="box">
             <div class="box-title">PRESIDING JUDGE</div>
-            <div class="value">${matter.judge || 'Not Assigned'}</div>
+            <div class="value">${escapeHtml(matter.judge) || 'Not Assigned'}</div>
           </div>
           <div class="box">
             <div class="box-title">SUBJECT MATTER / PLOT NO.</div>
-            <div class="value">${matter.plot || 'N/A'}</div>
+            <div class="value">${escapeHtml(matter.plot) || 'N/A'}</div>
           </div>
           <div class="box">
             <div class="box-title">LEAD LAWYER IN CHARGE</div>
-            <div class="value">${matter.leadLawyerName || matter.leadLawyer}</div>
+            <div class="value">${escapeHtml(matter.leadLawyerName || matter.leadLawyer)}</div>
           </div>
           <div class="box">
             <div class="box-title">CURRENT STATUS</div>
-            <div class="value"><strong>${matter.status.toUpperCase()}</strong></div>
+            <div class="value"><strong>${escapeHtml(matter.status.toUpperCase())}</strong></div>
           </div>
           <div class="box">
             <div class="box-title">FILING DATE</div>
-            <div class="value">${matter.filingDate}</div>
+            <div class="value">${escapeHtml(matter.filingDate)}</div>
           </div>
           <div class="box">
             <div class="box-title">NEXT HEARING DATE & PURPOSE</div>
-            <div class="value"><strong>${matter.nextHearingDate || 'Unscheduled'}</strong> (${matter.purpose || 'N/A'})</div>
+            <div class="value"><strong>${escapeHtml(matter.nextHearingDate) || 'Unscheduled'}</strong> (${escapeHtml(matter.purpose) || 'N/A'})</div>
           </div>
         </div>
 
         <div class="section-heading">Case Overview & Summary</div>
-        <p class="value" style="background: #fafafa; padding: 12px; border: 1px solid #ddd;">${matter.summaryNotes || 'No summary notes provided.'}</p>
+        <p class="value" style="background: #fafafa; padding: 12px; border: 1px solid #ddd;">${escapeHtml(matter.summaryNotes) || 'No summary notes provided.'}</p>
 
         <div class="section-heading">Court Appearances & Timeline History</div>
         ${
@@ -100,12 +118,12 @@ export function printCaseBundle(matter: Matter, timeline: TimelineEvent[], docum
                 .map(
                   t => `
                 <tr>
-                  <td>${t.date}</td>
-                  <td>${t.type.toUpperCase()}</td>
-                  <td>${t.judge || '-'}</td>
-                  <td>${t.purpose || '-'}</td>
-                  <td>${t.appearances || '-'}</td>
-                  <td>${t.summary}</td>
+                  <td>${escapeHtml(t.date)}</td>
+                  <td>${escapeHtml(t.type.toUpperCase())}</td>
+                  <td>${escapeHtml(t.judge) || '-'}</td>
+                  <td>${escapeHtml(t.purpose) || '-'}</td>
+                  <td>${escapeHtml(t.appearances) || '-'}</td>
+                  <td>${escapeHtml(t.summary)}</td>
                 </tr>
               `
                 )
@@ -135,11 +153,11 @@ export function printCaseBundle(matter: Matter, timeline: TimelineEvent[], docum
                 .map(
                   d => `
                 <tr>
-                  <td>${d.fileName}</td>
-                  <td>${d.docType.toUpperCase()}</td>
-                  <td>v${d.version}</td>
-                  <td>${d.uploadedByName || d.uploadedBy}</td>
-                  <td>${new Date(d.uploadedAt).toLocaleDateString()}</td>
+                  <td>${escapeHtml(d.fileName)}</td>
+                  <td>${escapeHtml(d.docType.toUpperCase())}</td>
+                  <td>v${escapeHtml(d.version)}</td>
+                  <td>${escapeHtml(d.uploadedByName || d.uploadedBy)}</td>
+                  <td>${escapeHtml(new Date(d.uploadedAt).toLocaleDateString())}</td>
                 </tr>
               `
                 )
@@ -151,7 +169,7 @@ export function printCaseBundle(matter: Matter, timeline: TimelineEvent[], docum
         }
 
         <div class="footer">
-          Legal Proceedings Manager &bull; Confidential Case Brief &bull; Generated on ${new Date().toLocaleString()}
+          Legal Proceedings Manager &bull; Confidential Case Brief &bull; Generated on ${escapeHtml(new Date().toLocaleString())}
         </div>
       </body>
     </html>
