@@ -28,13 +28,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
   openDeadlineCalcModal,
 }) => {
   const { currentUser } = useAuth();
+  const isInternalStaff = currentUser?.role === 'admin' || currentUser?.role === 'lawyer' || currentUser?.role === 'paralegal';
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard & Analytics', icon: LayoutDashboard },
     { id: 'matters', label: 'Cause List & Matters', icon: Gavel },
     { id: 'reminders', label: 'Reminders & Alerts', icon: Clock },
-    { id: 'conflict', label: 'Conflict Checker', icon: ShieldAlert },
-    ...(currentUser?.role === 'admin' || currentUser?.role === 'lawyer'
+    ...(isInternalStaff
+      ? [{ id: 'conflict', label: 'Conflict Checker', icon: ShieldAlert }]
+      : []),
+    ...(isInternalStaff
       ? [{ id: 'team', label: 'Team & Access', icon: Users }]
       : []),
     { id: 'notifications', label: 'Notification Center', icon: Bell },
