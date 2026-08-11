@@ -51,7 +51,8 @@ export interface MatterDocument {
   id: string;
   matterId: string;
   fileName: string;
-  storagePath: string;
+  storagePath: string; // Path in Firebase Storage, e.g. matters/{matterId}/{uid}_{fileName}
+  downloadURL: string; // Firebase Storage download URL
   fileSize?: number; // Bytes
   fileType?: string;
   docType: DocumentType;
@@ -59,7 +60,6 @@ export interface MatterDocument {
   uploadedByName?: string;
   uploadedAt: string;
   version: number;
-  dataUrl?: string; // For client-side preview / storage simulation
   description?: string;
 }
 
