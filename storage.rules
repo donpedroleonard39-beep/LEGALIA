@@ -1,0 +1,29 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // IMPORTANT LIMITATION - please read:
+    // Ideally these rules would call firestore.get()/firestore.exists() to
+    // check the requesting user against the parent matter's `teamMembers`
+    // array in Firestore, mirroring firestore.rules exactly (see the
+    // `matters/{matterId}/documents` rule there). However, every documented
+    // example of that cross-service pattern targets the Firestore
+    // `(default)` database, and this project's Firestore uses a NAMED
+    // database (see firestoreDatabaseId in firebase-applet-config.json), not
+    // "(default)". There is no confirmed, documented way to point
+    // firestore.get() at a named database from Storage rules as of this
+    // writing, so a rule written that way could silently deny everyone (or
+    // behave unpredictably) rather than actually enforcing per-matter access.
+    //
+    // Until that's verified against current Firebase docs/console (or the
+    // Firestore data is migrated to the (default) database), this falls back
+    // to "any signed-in user" for the object path below. The real
+    // confidentiality boundary for who can even discover a document's
+    // storage path lives in firestore.rules (matters/{id}/documents), which
+    // IS fully enforced. Treat this as defense-in-depth that is weaker than
+    // the Firestore layer, not as an independent guarantee.
+    match /matters/{matterId}/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
