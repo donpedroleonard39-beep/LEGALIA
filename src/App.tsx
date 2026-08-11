@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { Navbar } from './components/Navbar';
@@ -18,8 +18,11 @@ import { SettingsPage } from './components/Settings/SettingsPage';
 import { AuthModal } from './components/Auth/AuthModal';
 import { Matter } from './types';
 import { fetchAllMatters } from './services/matterService';
+import { Scale } from 'lucide-react';
 
 function AppContent() {
+  const { firebaseUser, currentUser, loading: authLoading } = useAuth();
+
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [matters, setMatters] = useState<Matter[]>([]);
   const [selectedMatter, setSelectedMatter] = useState<Matter | null>(null);
@@ -31,13 +34,27 @@ function AppContent() {
   const [isDeadlineCalcOpen, setIsDeadlineCalcOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
+  const isInternalStaff = currentUser?.role === 'admin' || currentUser?.role === 'lawyer' || currentUser?.role === 'paralegal';
+
   useEffect(() => {
-    loadMatters();
-  }, []);
+    if (firebaseUser && currentUser) {
+      loadMatters();
+    } else {
+      setMatters([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firebaseUser, currentUser?.role]);
 
   const loadMatters = async () => {
-    const list = await fetchAllMatters();
+    if (!firebaseUser || !currentUser) return;
+    const list = await fetchAllMatters(firebaseUser.uid, isInternalStaff);
     setMatters(list);
+    // Keep the open matter detail view in sync after an edit/team change,
+    // instead of showing a stale snapshot until the user navigates away.
+    setSelectedMatter((prev) => {
+      if (!prev) return prev;
+      return list.find((m) => m.id === prev.id) || prev;
+    });
   };
 
   const openNewMatterModal = () => {
@@ -45,9 +62,46 @@ function AppContent() {
     setIsMatterModalOpen(true);
   };
 
+  const openEditMatterModal = (matter: Matter) => {
+    setMatterToEdit(matter);
+    setIsMatterModalOpen(true);
+  };
+
+  // Auth is still resolving - avoid flashing the landing page or an empty
+  // shell while Firebase figures out whether there's a session.
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F5F2EA] dark:bg-[#12172B]">
+        <div className="flex flex-col items-center gap-3 text-[#8A90AC]">
+          <Scale className="w-8 h-8 text-[#B8935F] animate-pulse" />
+          <span className="text-[13px] font-medium">Loading LEGALIA…</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Not signed in - only the landing page (and the auth modal) are reachable.
+  // The rest of the app, and any Firestore data, stays out of reach until
+  // there is a real Firebase Auth session.
+  if (!firebaseUser || !currentUser) {
+    return (
+      <>
+        <LandingPage
+          isAuthed={false}
+          openAuthModal={() => setIsAuthModalOpen(true)}
+        />
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+        />
+      </>
+    );
+  }
+
   if (activeTab === 'landing') {
     return (
       <LandingPage
+        isAuthed={true}
         setActiveTab={setActiveTab}
         openAuthModal={() => setIsAuthModalOpen(true)}
       />
@@ -89,6 +143,7 @@ function AppContent() {
               matter={selectedMatter}
               onBack={() => setSelectedMatter(null)}
               onRefresh={loadMatters}
+              onEdit={openEditMatterModal}
             />
           ) : (
             <>
@@ -133,7 +188,7 @@ function AppContent() {
               )}
 
               {activeTab === 'team' && (
-                <TeamManager matters={matters} />
+                <TeamManager matters={matters} onMattersChanged={loadMatters} />
               )}
 
               {activeTab === 'settings' && <SettingsPage />}
@@ -155,11 +210,6 @@ function AppContent() {
       <DeadlineCalculatorModal
         isOpen={isDeadlineCalcOpen}
         onClose={() => setIsDeadlineCalcOpen(false)}
-      />
-
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
       />
 
     </div>
