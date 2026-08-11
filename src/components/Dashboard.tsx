@@ -127,13 +127,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={openNewMatterModal}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#B8935F] hover:bg-[#8C6F49] text-[#12172B] text-[13px] font-semibold transition"
-          >
-            <PlusCircle className="w-3.5 h-3.5" />
-            Intake Matter
-          </button>
+          {(currentUser?.role === 'admin' || currentUser?.role === 'lawyer' || currentUser?.role === 'paralegal') && (
+            <button
+              onClick={openNewMatterModal}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#B8935F] hover:bg-[#8C6F49] text-[#12172B] text-[13px] font-semibold transition"
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              Intake Matter
+            </button>
+          )}
           
           <button
             onClick={() => exportMattersToCsv(matters, 'full_cause_list')}
@@ -377,12 +379,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <td colSpan={8} className="p-8 text-center text-[#5C6278] dark:text-[#8A90AC]">
                     <div className="flex flex-col items-center justify-center space-y-2">
                       <div>No active cause list entries in your practice database.</div>
-                      <button
-                        onClick={openNewMatterModal}
-                        className="px-3.5 py-1.5 rounded-lg bg-[#B8935F] hover:bg-[#8C6F49] text-[#12172B] font-bold text-[12px] transition mt-1"
-                      >
-                        + Intake New Matter
-                      </button>
+                      {(currentUser?.role === 'admin' || currentUser?.role === 'lawyer' || currentUser?.role === 'paralegal') && (
+                        <button
+                          onClick={openNewMatterModal}
+                          className="px-3.5 py-1.5 rounded-lg bg-[#B8935F] hover:bg-[#8C6F49] text-[#12172B] font-bold text-[12px] transition mt-1"
+                        >
+                          + Intake New Matter
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -433,21 +437,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* Quick Tools Strip */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         
-        <button
-          onClick={() => setActiveTab('conflict')}
-          className="legal-card legal-card-hover p-4 text-left flex items-center justify-between"
-        >
-          <div className="flex items-center gap-3">
-            <div className="icon-box-32" style={{ color: '#C1554A', backgroundColor: 'rgba(193, 85, 74, 0.12)' }}>
-              <ShieldAlert className="w-4 h-4" />
+        {(currentUser?.role === 'admin' || currentUser?.role === 'lawyer' || currentUser?.role === 'paralegal') && (
+          <button
+            onClick={() => setActiveTab('conflict')}
+            className="legal-card legal-card-hover p-4 text-left flex items-center justify-between"
+          >
+            <div className="flex items-center gap-3">
+              <div className="icon-box-32" style={{ color: '#C1554A', backgroundColor: 'rgba(193, 85, 74, 0.12)' }}>
+                <ShieldAlert className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-semibold text-[13px] text-[#12172B] dark:text-[#F6F3EC]">Conflict Checker</div>
+                <div className="text-[13px] text-[#8A90AC]">Scan parties & plots before intake</div>
+              </div>
             </div>
-            <div>
-              <div className="font-semibold text-[13px] text-[#12172B] dark:text-[#F6F3EC]">Conflict Checker</div>
-              <div className="text-[13px] text-[#8A90AC]">Scan parties & plots before intake</div>
-            </div>
-          </div>
-          <ChevronRight className="w-4 h-4 text-[#8A90AC]" />
-        </button>
+            <ChevronRight className="w-4 h-4 text-[#8A90AC]" />
+          </button>
+        )}
 
         <button
           onClick={openDeadlineCalcModal}
