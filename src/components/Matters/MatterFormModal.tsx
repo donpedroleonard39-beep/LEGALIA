@@ -28,7 +28,7 @@ export const MatterFormModal: React.FC<MatterFormModalProps> = ({
   const [plot, setPlot] = useState(matterToEdit?.plot || '');
   const [plaintiffsText, setPlaintiffsText] = useState(matterToEdit?.plaintiffs?.join(', ') || '');
   const [defendantsText, setDefendantsText] = useState(matterToEdit?.defendants?.join(', ') || '');
-  const [leadLawyerName, setLeadLawyerName] = useState(matterToEdit?.leadLawyerName || currentUser?.name || 'Barr. Chisom Okeke');
+  const [leadLawyerName, setLeadLawyerName] = useState(matterToEdit?.leadLawyerName || currentUser?.name || '');
   const [status, setStatus] = useState<MatterStatus>(matterToEdit?.status || 'active');
   const [filingDate, setFilingDate] = useState(matterToEdit?.filingDate || new Date().toISOString().split('T')[0]);
   const [nextHearingDate, setNextHearingDate] = useState(matterToEdit?.nextHearingDate || '');
@@ -44,6 +44,11 @@ export const MatterFormModal: React.FC<MatterFormModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
+
+    if (!currentUser) {
+      setErrorMessage('You must be signed in to save a matter.');
+      return;
+    }
 
     if (!suitNumber.trim()) {
       setErrorMessage('Suit Number is strictly required (e.g. E/968/2022).');
@@ -95,8 +100,8 @@ export const MatterFormModal: React.FC<MatterFormModalProps> = ({
             appearances: appearances.trim(),
             summaryNotes: summaryNotes.trim(),
           },
-          currentUser?.uid || 'user_demo',
-          currentUser?.name || 'Counsel'
+          currentUser.uid,
+          currentUser.name
         );
         showToast('Matter Updated', `Suit No. ${suitNumber} updated successfully.`, 'success');
       } else {
@@ -109,11 +114,11 @@ export const MatterFormModal: React.FC<MatterFormModalProps> = ({
             plot: plot.trim(),
             plaintiffs: plaintiffs.length > 0 ? plaintiffs : ['Claimant'],
             defendants: defendants.length > 0 ? defendants : ['Defendant'],
-            leadLawyer: currentUser?.uid || 'lawyer_chisom',
-            leadLawyerName: leadLawyerName.trim(),
-            teamMembers: [currentUser?.uid || 'admin_demo', 'lawyer_chisom'],
-            createdBy: currentUser?.uid || 'user_demo',
-            createdByName: currentUser?.name || 'Counsel',
+            leadLawyer: currentUser.uid,
+            leadLawyerName: leadLawyerName.trim() || currentUser.name,
+            teamMembers: [currentUser.uid],
+            createdBy: currentUser.uid,
+            createdByName: currentUser.name,
             status,
             filingDate,
             nextHearingDate: nextHearingDate || undefined,
@@ -121,8 +126,8 @@ export const MatterFormModal: React.FC<MatterFormModalProps> = ({
             appearances: appearances.trim(),
             summaryNotes: summaryNotes.trim(),
           },
-          currentUser?.uid || 'user_demo',
-          currentUser?.name || 'Counsel'
+          currentUser.uid,
+          currentUser.name
         );
         showToast('Matter Created', `Suit No. ${suitNumber} registered successfully.`, 'success');
       }
