@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { X, Scale, LogIn, UserPlus, Sparkles } from 'lucide-react';
+import { X, Scale } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
-import { UserRole } from '../../types';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -17,13 +16,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState<UserRole>('lawyer');
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage('');
     setLoading(true);
 
     try {
@@ -31,26 +31,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         await loginWithEmail(email, password);
         showToast('Welcome Back', 'Signed in successfully.', 'success');
       } else {
-        await signUpWithEmail(email, password, name, role);
-        showToast('Account Created', 'Registered new counsel account.', 'success');
+        await signUpWithEmail(email, password, name);
+        showToast('Account Created', 'Your account was registered.', 'success');
       }
       onClose();
     } catch (err: any) {
-      showToast('Auth Notice', err.message || 'Authentication complete.', 'info');
-      onClose();
+      // Show the real error and keep the modal open so the person can retry
+      // - silently pretending sign-in/sign-up succeeded would be misleading.
+      setErrorMessage(err?.message || 'Authentication failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogle = async () => {
+    setErrorMessage('');
     try {
       await loginWithGoogle();
       showToast('Google Sign In', 'Authenticated with Google.', 'success');
       onClose();
     } catch (err: any) {
-      showToast('Sign In', 'Signed in with demo session.', 'info');
-      onClose();
+      setErrorMessage(err?.message || 'Google sign-in failed. Please try again.');
     }
   };
 
@@ -78,7 +79,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         {/* Mode Switcher */}
         <div className="mt-4 flex rounded-lg bg-[#EDE8DC] dark:bg-[#12172B] p-1 text-[13px] font-semibold">
           <button
-            onClick={() => setMode('signin')}
+            onClick={() => { setMode('signin'); setErrorMessage(''); }}
             className={`flex-1 py-2 rounded-md transition ${
               mode === 'signin'
                 ? 'bg-[#B8935F] text-[#12172B] shadow-xs'
@@ -89,7 +90,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           </button>
 
           <button
-            onClick={() => setMode('signup')}
+            onClick={() => { setMode('signup'); setErrorMessage(''); }}
             className={`flex-1 py-2 rounded-md transition ${
               mode === 'signup'
                 ? 'bg-[#B8935F] text-[#12172B] shadow-xs'
@@ -130,6 +131,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           <span className="relative bg-[#F6F3EC] dark:bg-[#1B2140] px-2">or Email Credentials</span>
         </div>
 
+        {errorMessage && (
+          <div className="mb-3 p-2.5 rounded-lg bg-[#C1554A]/10 border border-[#C1554A]/30 text-[#C1554A] text-[12px]">
+            {errorMessage}
+          </div>
+        )}
+
         {/* Email Form */}
         <form onSubmit={handleSubmit} className="space-y-3 text-[13px]">
           {mode === 'signup' && (
@@ -140,7 +147,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Barr. Chisom Okeke"
+                placeholder="Full name"
                 className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] text-[#12172B] dark:text-[#F6F3EC] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
               />
             </div>
@@ -163,6 +170,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             <input
               type="password"
               required
+              minLength={6}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -171,25 +179,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           </div>
 
           {mode === 'signup' && (
-            <div>
-              <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Select Role</label>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value as UserRole)}
-                className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] font-bold text-[#12172B] dark:text-[#F6F3EC] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
-              >
-                <option value="admin">Managing Partner (Admin)</option>
-                <option value="lawyer">Lead Counsel (Lawyer)</option>
-                <option value="paralegal">Paralegal</option>
-                <option value="client">Client Viewer</option>
-              </select>
-            </div>
+            <p className="text-[11px] text-[#8A90AC] leading-relaxed">
+              New accounts start with limited (client-level) access. A practice
+              administrator will need to grant you staff access from Team &amp; Access
+              before you can see the matter registry.
+            </p>
           )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded-lg bg-[#B8935F] hover:bg-[#8C6F49] text-[#12172B] font-bold transition shadow-sm mt-2"
+            className="w-full py-2.5 rounded-lg bg-[#B8935F] hover:bg-[#8C6F49] text-[#12172B] font-bold transition shadow-sm mt-2 disabled:opacity-50"
           >
             {loading ? 'Processing...' : mode === 'signin' ? 'Sign In' : 'Create Account'}
           </button>
