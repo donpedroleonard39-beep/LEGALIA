@@ -1,32 +1,115 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ---------- Helpers ----------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // NOTE: only call this where the caller's /users/{uid} doc is expected to exist
+    // (i.e. after sign-up, the client always creates it immediately).
+    function myRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && myRole() == 'admin';
+    }
+
+    // Firm staff (admin/lawyer/paralegal) get firm-wide READ visibility on the
+    // matter registry so conflict-of-interest checks are reliable across the
+    // whole practice. Clients never get this - they only ever see matters they
+    // are explicitly added to. This does NOT extend to a matter's documents,
+    // timeline, or invites subcollections - those stay restricted to the
+    // matter's own team + admins (see below).
+    function isInternalStaff() {
+      return isSignedIn() && myRole() in ['admin', 'lawyer', 'paralegal'];
+    }
+
+    function isMatterTeamMember(matterId) {
+      return isSignedIn() &&
+        request.auth.uid in
+          get(/databases/$(database)/documents/matters/$(matterId)).data.teamMembers;
+    }
+
+    // ---------- Users ----------
     match /users/{uid} {
-      allow read, write: if request.auth != null;
+      // Any signed-in user may read profiles (needed to resolve names/emails
+      // of teammates and to look up a colleague by email when granting matter
+      // access). Profiles hold work name/email/role only - no sensitive data.
+      allow read: if isSignedIn();
+
+      // A user may only ever create their own profile document.
+      allow create: if isSignedIn() && request.auth.uid == uid;
+
+      // A user may update their own profile, but may NOT change their own
+      // `role` (prevents self-promotion to admin). An admin may update any
+      // profile, including role, to manage the team.
+      allow update: if isSignedIn() && (
+        (request.auth.uid == uid && request.resource.data.role == resource.data.role) ||
+        isAdmin()
+      );
+
+      allow delete: if false;
     }
 
+    // ---------- Matters ----------
     match /matters/{matterId} {
-      allow read, update: if request.auth != null && (resource == null || request.auth.uid in resource.data.teamMembers);
-      allow create: if request.auth != null;
-      allow delete: if request.auth != null && (resource == null || request.auth.uid == resource.data.leadLawyer);
+      allow read: if isSignedIn() && (
+        isInternalStaff() || request.auth.uid in resource.data.teamMembers
+      );
 
+      // Only firm staff may open new matters, and only onto a team that
+      // includes themselves.
+      allow create: if isSignedIn() && isInternalStaff() &&
+        request.auth.uid in request.resource.data.teamMembers;
+
+      allow update: if isSignedIn() && (
+        (request.auth.uid in resource.data.teamMembers && isInternalStaff()) || isAdmin()
+      );
+
+      allow delete: if isSignedIn() && (
+        request.auth.uid == resource.data.leadLawyer || isAdmin()
+      );
+
+      // Clients on the team can read their own case's documents/timeline
+      // (a lightweight "client portal" view) but never write to them - only
+      // internal staff (or an admin) can add/edit/delete case content.
       match /documents/{docId} {
-        allow read, write, create, delete: if request.auth != null;
+        allow read: if isMatterTeamMember(matterId) || isAdmin();
+        allow write: if (isMatterTeamMember(matterId) && isInternalStaff()) || isAdmin();
       }
+
       match /timeline/{eventId} {
-        allow read, write, create, delete: if request.auth != null;
+        allow read: if isMatterTeamMember(matterId) || isAdmin();
+        allow write: if (isMatterTeamMember(matterId) && isInternalStaff()) || isAdmin();
       }
+
+      // Managing who's on the team is staff-only, full stop.
       match /invites/{inviteId} {
-        allow read, write, create, delete: if request.auth != null;
+        allow read, write: if (isMatterTeamMember(matterId) && isInternalStaff()) || isAdmin();
       }
     }
 
+    // ---------- Reminders (private, per-user) ----------
     match /reminders/{reminderId} {
-      allow read, write, create, delete: if request.auth != null;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
     }
 
+    // ---------- Notifications (private, per-user) ----------
     match /notifications/{notifId} {
-      allow read, write, create, delete: if request.auth != null;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      // A notification can be created for yourself, or for a teammate on a
+      // matter you both share (e.g. "document added", "hearing scheduled"),
+      // or by an admin acting on any matter.
+      allow create: if isSignedIn() && (
+        request.resource.data.userId == request.auth.uid ||
+        (request.resource.data.matterId is string &&
+         (isMatterTeamMember(request.resource.data.matterId) || isAdmin()))
+      );
     }
   }
 }
