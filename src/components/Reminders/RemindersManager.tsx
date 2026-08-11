@@ -38,14 +38,14 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({ matters }) =
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!remindAtDate || !selectedMatter) return;
+    if (!remindAtDate || !selectedMatter || !currentUser) return;
 
     const channels: ('email' | 'inApp')[] = [];
     if (notifyEmail) channels.push('email');
     if (notifyInApp) channels.push('inApp');
 
     await createReminder({
-      userId: currentUser?.uid || 'user_demo',
+      userId: currentUser.uid,
       matterId: selectedMatter.id,
       suitNumber: selectedMatter.suitNumber,
       remindAt: new Date(remindAtDate).toISOString(),
