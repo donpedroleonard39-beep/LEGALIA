@@ -12,6 +12,7 @@ import {
 import { Matter, MatterStatus } from '../../types';
 import { exportMattersToCsv } from '../../utils/csvExport';
 import { DocketStamp } from '../common/DocketStamp';
+import { useAuth } from '../../context/AuthContext';
 
 interface MattersListProps {
   matters: Matter[];
@@ -30,6 +31,8 @@ export const MattersList: React.FC<MattersListProps> = ({
 }) => {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedJudge, setSelectedJudge] = useState<string>('all');
+  const { currentUser } = useAuth();
+  const canIntake = currentUser?.role === 'admin' || currentUser?.role === 'lawyer' || currentUser?.role === 'paralegal';
 
   // Extract unique judges
   const judgesList = Array.from(
@@ -83,13 +86,15 @@ export const MattersList: React.FC<MattersListProps> = ({
             Export Filtered CSV
           </button>
 
-          <button
-            onClick={openNewMatterModal}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#B8935F] hover:bg-[#8C6F49] text-[#12172B] text-[13px] font-bold shadow-sm transition"
-          >
-            <PlusCircle className="w-4 h-4" />
-            Intake Matter
-          </button>
+          {canIntake && (
+            <button
+              onClick={openNewMatterModal}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#B8935F] hover:bg-[#8C6F49] text-[#12172B] text-[13px] font-bold shadow-sm transition"
+            >
+              <PlusCircle className="w-4 h-4" />
+              Intake Matter
+            </button>
+          )}
         </div>
       </div>
 
@@ -183,10 +188,10 @@ export const MattersList: React.FC<MattersListProps> = ({
                       </div>
                       <p className="text-[13px] text-[#5C6278] dark:text-[#8A90AC]">
                         {matters.length === 0
-                          ? 'Your active database is connected to Cloud Firestore. All demo placeholder suits have been removed. Click below to intake your first official matter.'
+                          ? 'Your practice registry is connected to Cloud Firestore and currently empty. Click below to intake your first matter.'
                           : 'Try adjusting your search query or status filter above.'}
                       </p>
-                      {matters.length === 0 && (
+                      {matters.length === 0 && canIntake && (
                         <button
                           onClick={openNewMatterModal}
                           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#B8935F] hover:bg-[#8C6F49] text-[#12172B] font-bold text-[13px] shadow-sm transition mt-2"
