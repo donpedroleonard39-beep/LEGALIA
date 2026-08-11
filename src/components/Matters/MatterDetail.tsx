@@ -11,21 +11,30 @@ import {
   Upload,
   Calendar,
   UserCheck,
+  UserX,
   ShieldCheck,
   CheckCircle2,
   FileSpreadsheet,
   Trash2,
   Lock,
+  Download,
+  Pencil,
 } from 'lucide-react';
-import { Matter, TimelineEvent, MatterDocument, Reminder, UserRole } from '../../types';
+import { Matter, TimelineEvent, MatterDocument, Reminder, UserProfile } from '../../types';
 import {
   fetchTimelineEvents,
   addTimelineEvent,
   fetchMatterDocuments,
   uploadMatterDocument,
+  deleteMatterDocument,
   createReminder,
   updateMatterDetails,
   deleteMatterById,
+  findUserByEmail,
+  addTeamMemberToMatter,
+  removeTeamMemberFromMatter,
+  fetchAllUsers,
+  notifyMatterTeam,
 } from '../../services/matterService';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -37,9 +46,10 @@ interface MatterDetailProps {
   matter: Matter;
   onBack: () => void;
   onRefresh: () => void;
+  onEdit: (matter: Matter) => void;
 }
 
-export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRefresh }) => {
+export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRefresh, onEdit }) => {
   const { currentUser } = useAuth();
   const { showToast } = useNotifications();
 
@@ -59,20 +69,27 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
 
   // New Document Upload State
   const [showAddDoc, setShowAddDoc] = useState(false);
-  const [fileName, setFileName] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [docType, setDocType] = useState<MatterDocument['docType']>('pleading');
   const [docDescription, setDocDescription] = useState('');
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   // New Reminder State
   const [remindAtDate, setRemindAtDate] = useState('');
   const [remindMsg, setRemindMsg] = useState(`Hearing for ${matter.suitNumber} before ${matter.judge || 'Court'}`);
 
-  // New Team Member Invite State
+  // Team Member Invite State
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<UserRole>('paralegal');
+  const [invitePending, setInvitePending] = useState(false);
+  const [teamProfiles, setTeamProfiles] = useState<Record<string, UserProfile>>({});
+
+  const canManageTeam = currentUser?.role === 'admin' || currentUser?.uid === matter.leadLawyer;
+  const isInternalStaff = currentUser?.role === 'admin' || currentUser?.role === 'lawyer' || currentUser?.role === 'paralegal';
+  const canEditMatter = currentUser?.role === 'admin' || (isInternalStaff && matter.teamMembers.includes(currentUser?.uid || ''));
 
   useEffect(() => {
     loadSubData();
+    loadTeamProfiles();
   }, [matter.id]);
 
   const loadSubData = async () => {
@@ -86,11 +103,22 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
     setLoadingData(false);
   };
 
+  const loadTeamProfiles = async () => {
+    try {
+      const all = await fetchAllUsers();
+      const map: Record<string, UserProfile> = {};
+      all.forEach((u) => { map[u.uid] = u; });
+      setTeamProfiles(map);
+    } catch (err) {
+      console.warn('Could not load team profiles:', err);
+    }
+  };
+
   const deadlines = calculateStatutoryDeadlines(matter.court, matter.filingDate);
 
   const handleAddTimeline = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!eventSummary.trim()) return;
+    if (!eventSummary.trim() || !currentUser) return;
 
     await addTimelineEvent(matter.id, {
       date: eventDate,
@@ -99,8 +127,8 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
       judge: matter.judge,
       purpose: eventPurpose,
       appearances: eventAppearances,
-      createdBy: currentUser?.uid || 'user_demo',
-      createdByName: currentUser?.name || 'Counsel',
+      createdBy: currentUser.uid,
+      createdByName: currentUser.name,
     });
 
     // Also update next hearing date if applicable
@@ -108,8 +136,8 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
       await updateMatterDetails(
         matter.id,
         { nextHearingDate: eventDate, purpose: eventPurpose, appearances: eventAppearances },
-        currentUser?.uid || 'user',
-        currentUser?.name || 'Counsel'
+        currentUser.uid,
+        currentUser.name
       );
       onRefresh();
     }
@@ -122,33 +150,58 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
 
   const handleUploadDoc = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fileName.trim()) return;
+    if (!selectedFile || !currentUser) return;
 
-    await uploadMatterDocument(matter.id, {
-      fileName: fileName.trim().endsWith('.pdf') ? fileName.trim() : `${fileName.trim()}.pdf`,
-      storagePath: `matters/${matter.id}/${fileName.trim()}`,
-      fileSize: 1048576,
-      fileType: 'application/pdf',
-      docType,
-      uploadedBy: currentUser?.uid || 'user_demo',
-      uploadedByName: currentUser?.name || 'Counsel',
-      version: 1,
-      description: docDescription.trim(),
-    });
+    setUploadProgress(0);
+    try {
+      await uploadMatterDocument(
+        matter.id,
+        selectedFile,
+        {
+          docType,
+          description: docDescription.trim(),
+          uploadedBy: currentUser.uid,
+          uploadedByName: currentUser.name,
+        },
+        (pct) => setUploadProgress(pct)
+      );
 
-    showToast('Document Vault', `Document "${fileName}" deposited successfully.`, 'success');
-    setFileName('');
-    setDocDescription('');
-    setShowAddDoc(false);
-    loadSubData();
+      await notifyMatterTeam(
+        matter,
+        `New document "${selectedFile.name}" deposited to ${matter.suitNumber}.`,
+        'document_added',
+        currentUser.uid
+      );
+
+      showToast('Document Vault', `Document "${selectedFile.name}" deposited successfully.`, 'success');
+      setSelectedFile(null);
+      setDocDescription('');
+      setShowAddDoc(false);
+      loadSubData();
+    } catch (err: any) {
+      showToast('Upload Failed', err?.message || 'Could not upload the document.', 'error');
+    } finally {
+      setUploadProgress(null);
+    }
+  };
+
+  const handleDeleteDoc = async (docItem: MatterDocument) => {
+    if (!window.confirm(`Delete "${docItem.fileName}" from the vault? This cannot be undone.`)) return;
+    try {
+      await deleteMatterDocument(matter.id, docItem);
+      showToast('Document Removed', `"${docItem.fileName}" deleted from vault.`, 'info');
+      loadSubData();
+    } catch (err: any) {
+      showToast('Delete Failed', err?.message || 'Could not delete the document.', 'error');
+    }
   };
 
   const handleCreateReminder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!remindAtDate) return;
+    if (!remindAtDate || !currentUser) return;
 
     await createReminder({
-      userId: currentUser?.uid || 'user_demo',
+      userId: currentUser.uid,
       matterId: matter.id,
       suitNumber: matter.suitNumber,
       remindAt: new Date(remindAtDate).toISOString(),
@@ -162,10 +215,55 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
 
   const handleInviteTeam = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inviteEmail.trim()) return;
+    if (!inviteEmail.trim() || !currentUser) return;
 
-    showToast('Invite Dispatched', `Access invite sent to ${inviteEmail}.`, 'success');
-    setInviteEmail('');
+    setInvitePending(true);
+    try {
+      const found = await findUserByEmail(inviteEmail.trim());
+      if (!found) {
+        showToast(
+          'No Account Found',
+          `No LEGALIA account exists yet for ${inviteEmail}. Ask them to register, then add them again.`,
+          'info'
+        );
+        return;
+      }
+      if (matter.teamMembers.includes(found.uid)) {
+        showToast('Already On Team', `${found.name} already has access to this suit.`, 'info');
+        return;
+      }
+
+      await addTeamMemberToMatter(matter.id, found.uid);
+      await notifyMatterTeam(
+        { ...matter, teamMembers: [found.uid] },
+        `You've been granted access to ${matter.suitNumber} (${matter.title}).`,
+        'invite',
+        undefined
+      );
+
+      showToast('Access Granted', `${found.name} added to the suit team.`, 'success');
+      setInviteEmail('');
+      onRefresh();
+    } catch (err: any) {
+      showToast('Invite Failed', err?.message || 'Could not grant access.', 'error');
+    } finally {
+      setInvitePending(false);
+    }
+  };
+
+  const handleRemoveTeamMember = async (uid: string) => {
+    if (uid === matter.leadLawyer) {
+      showToast('Cannot Remove', 'The lead lawyer cannot be removed from the suit team.', 'info');
+      return;
+    }
+    if (!window.confirm('Remove this person from the suit team? They will lose access to this matter.')) return;
+    try {
+      await removeTeamMemberFromMatter(matter.id, uid);
+      showToast('Access Revoked', 'Team member removed from suit.', 'info');
+      onRefresh();
+    } catch (err: any) {
+      showToast('Removal Failed', err?.message || 'Could not remove team member.', 'error');
+    }
   };
 
   const handleDeleteMatter = async () => {
@@ -204,6 +302,16 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
 
         {/* Header Actions */}
         <div className="flex items-center gap-2">
+          {canEditMatter && (
+            <button
+              onClick={() => onEdit(matter)}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-[rgba(184,147,95,0.3)] bg-[#EDE8DC] dark:bg-[#12172B] hover:bg-[#E3DDD0] dark:hover:bg-[#1B2140] text-[#12172B] dark:text-[#F6F3EC] text-[13px] font-semibold transition"
+            >
+              <Pencil className="w-4 h-4 text-[#B8935F]" />
+              Edit Matter
+            </button>
+          )}
+
           <button
             onClick={() => printCaseBundle(matter, timeline, documents)}
             className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#12172B] dark:bg-[#1B2140] hover:bg-[#1B2140] dark:hover:bg-[#232A50] text-[#F6F3EC] text-[13px] font-semibold transition border border-[rgba(184,147,95,0.3)]"
@@ -212,7 +320,7 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
             Print Case Brief
           </button>
 
-          {currentUser?.role === 'admin' && (
+          {(currentUser?.role === 'admin' || currentUser?.uid === matter.leadLawyer) && (
             <button
               onClick={handleDeleteMatter}
               className="p-2 rounded-lg text-[#C1554A] hover:bg-[#C1554A]/10 transition"
@@ -621,34 +729,35 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
             <form onSubmit={handleUploadDoc} className="legal-card p-5 space-y-4 text-[13px]">
               <div className="font-serif font-semibold text-[#12172B] dark:text-[#F6F3EC] text-base">Deposit New Court Document</div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Document File Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={fileName}
-                    onChange={(e) => setFileName(e.target.value)}
-                    placeholder="e.g. Motion_for_Interlocutory_Injunction"
-                    className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)] font-mono"
-                  />
-                </div>
+              <div>
+                <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Choose File</label>
+                <input
+                  type="file"
+                  required
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)] text-[13px] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-[#B8935F] file:text-[#12172B] file:font-semibold"
+                />
+                {selectedFile && (
+                  <div className="text-[11px] text-[#8A90AC] mt-1">
+                    {selectedFile.name} &bull; {(selectedFile.size / 1024).toFixed(0)} KB
+                  </div>
+                )}
+              </div>
 
-                <div>
-                  <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Document Category</label>
-                  <select
-                    value={docType}
-                    onChange={(e) => setDocType(e.target.value as MatterDocument['docType'])}
-                    className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)] font-semibold"
-                  >
-                    <option value="pleading">Pleading / Writ</option>
-                    <option value="motion">Motion / Application</option>
-                    <option value="exhibit">Trial Exhibit</option>
-                    <option value="judgment">Judgment / Order</option>
-                    <option value="affidavit">Sworn Affidavit</option>
-                    <option value="correspondence">Correspondence</option>
-                  </select>
-                </div>
+              <div>
+                <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Document Category</label>
+                <select
+                  value={docType}
+                  onChange={(e) => setDocType(e.target.value as MatterDocument['docType'])}
+                  className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)] font-semibold"
+                >
+                  <option value="pleading">Pleading / Writ</option>
+                  <option value="motion">Motion / Application</option>
+                  <option value="exhibit">Trial Exhibit</option>
+                  <option value="judgment">Judgment / Order</option>
+                  <option value="affidavit">Sworn Affidavit</option>
+                  <option value="correspondence">Correspondence</option>
+                </select>
               </div>
 
               <div>
@@ -662,6 +771,15 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
                 />
               </div>
 
+              {uploadProgress !== null && (
+                <div className="w-full h-2 rounded-full bg-[#EDE8DC] dark:bg-[#12172B] overflow-hidden">
+                  <div
+                    className="h-full bg-[#B8935F] transition-all duration-200"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              )}
+
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
@@ -672,9 +790,10 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-lg bg-[#B8935F] text-[#12172B] font-bold"
+                  disabled={!selectedFile || uploadProgress !== null}
+                  className="px-5 py-2 rounded-lg bg-[#B8935F] text-[#12172B] font-bold disabled:opacity-50"
                 >
-                  Deposit Document
+                  {uploadProgress !== null ? `Uploading ${uploadProgress}%…` : 'Deposit Document'}
                 </button>
               </div>
             </form>
@@ -684,27 +803,38 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
             {documents.length === 0 ? (
               <div className="col-span-2 text-center py-12 text-[#8A90AC] text-[13px]">No documents uploaded.</div>
             ) : (
-              documents.map((doc) => (
-                <div key={doc.id} className="legal-card p-4 flex items-start justify-between">
+              documents.map((docItem) => (
+                <div key={docItem.id} className="legal-card p-4 flex items-start justify-between">
                   <div className="space-y-1 text-[13px]">
                     <div className="font-mono font-bold text-[#12172B] dark:text-[#F6F3EC] flex items-center gap-2">
                       <FileText className="w-4 h-4 text-[#B8935F]" />
-                      {doc.fileName}
+                      {docItem.fileName}
                     </div>
-                    <div className="text-[#8A90AC] text-[13px]">{doc.description || 'No description provided.'}</div>
+                    <div className="text-[#8A90AC] text-[13px]">{docItem.description || 'No description provided.'}</div>
                     <div className="text-[11px] text-[#8A90AC] flex items-center gap-3 pt-1">
-                      <span className="uppercase font-mono font-bold px-2 py-0.5 rounded bg-[#B8935F]/10 text-[#B8935F]">{doc.docType}</span>
-                      <span>v{doc.version}</span>
-                      <span>{new Date(doc.uploadedAt).toLocaleDateString()}</span>
+                      <span className="uppercase font-mono font-bold px-2 py-0.5 rounded bg-[#B8935F]/10 text-[#B8935F]">{docItem.docType}</span>
+                      <span>v{docItem.version}</span>
+                      <span>{new Date(docItem.uploadedAt).toLocaleDateString()}</span>
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => showToast('Document Download', `Downloading ${doc.fileName}...`, 'info')}
-                    className="px-3 py-1.5 rounded-lg bg-[#EDE8DC] dark:bg-[#12172B] hover:bg-[#B8935F] hover:text-[#12172B] transition text-[13px] font-semibold border border-[rgba(184,147,95,0.25)]"
-                  >
-                    Download
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <a
+                      href={docItem.downloadURL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 rounded-lg bg-[#EDE8DC] dark:bg-[#12172B] hover:bg-[#B8935F] hover:text-[#12172B] transition text-[13px] font-semibold border border-[rgba(184,147,95,0.25)] flex items-center gap-1.5"
+                    >
+                      <Download className="w-3.5 h-3.5" /> Download
+                    </a>
+                    <button
+                      onClick={() => handleDeleteDoc(docItem)}
+                      className="p-1.5 rounded-lg text-[#8A90AC] hover:text-[#C1554A] hover:bg-[#C1554A]/10 transition"
+                      title="Delete document"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ))
             )}
@@ -726,56 +856,76 @@ export const MatterDetail: React.FC<MatterDetailProps> = ({ matter, onBack, onRe
             </div>
           </div>
 
-          <form onSubmit={handleInviteTeam} className="legal-card p-5 space-y-3 text-[13px]">
-            <div className="font-semibold text-[#12172B] dark:text-[#F6F3EC]">Invite Team Member / Co-Counsel</div>
-            
-            <div className="flex flex-col sm:flex-row gap-3">
-              <input
-                type="email"
-                required
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="colleague@lawfirm.com"
-                className="flex-1 p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)]"
-              />
+          {canManageTeam ? (
+            <form onSubmit={handleInviteTeam} className="legal-card p-5 space-y-3 text-[13px]">
+              <div className="font-semibold text-[#12172B] dark:text-[#F6F3EC]">Add Team Member / Co-Counsel</div>
+              <p className="text-[11px] text-[#8A90AC]">
+                They must already have a LEGALIA account - enter the email they registered with.
+              </p>
 
-              <select
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value as UserRole)}
-                className="p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)] font-semibold"
-              >
-                <option value="lawyer">Co-Counsel (Lawyer)</option>
-                <option value="paralegal">Paralegal</option>
-                <option value="client">Client Viewer (Read Only)</option>
-              </select>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="email"
+                  required
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="colleague@lawfirm.com"
+                  className="flex-1 p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.2)]"
+                />
 
-              <button
-                type="submit"
-                className="px-5 py-2.5 rounded-lg bg-[#B8935F] text-[#12172B] font-bold"
-              >
-                Send Invite
-              </button>
+                <button
+                  type="submit"
+                  disabled={invitePending}
+                  className="px-5 py-2.5 rounded-lg bg-[#B8935F] text-[#12172B] font-bold disabled:opacity-50"
+                >
+                  {invitePending ? 'Adding…' : 'Grant Access'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="legal-card p-5 text-[13px] text-[#8A90AC] flex items-center gap-2">
+              <Lock className="w-4 h-4 text-[#B8935F]" />
+              Only the lead lawyer or a practice admin can manage this suit's team.
             </div>
-          </form>
+          )}
 
           <div className="legal-card p-5 space-y-3">
             <div className="font-semibold text-[13px] text-[#12172B] dark:text-[#F6F3EC]">Authorized Team Members ({matter.teamMembers.length})</div>
             
             <div className="divide-y divide-[rgba(184,147,95,0.15)] text-[13px]">
-              {matter.teamMembers.map((uid) => (
-                <div key={uid} className="py-2.5 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <UserCheck className="w-4 h-4 text-[#4F8F6B]" />
-                    <div>
-                      <div className="font-semibold text-[#12172B] dark:text-[#F6F3EC]">{uid}</div>
-                      <div className="text-[11px] text-[#8A90AC]">Granted active access to suit</div>
+              {matter.teamMembers.map((uid) => {
+                const profile = teamProfiles[uid];
+                const isLead = uid === matter.leadLawyer;
+                return (
+                  <div key={uid} className="py-2.5 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <UserCheck className="w-4 h-4 text-[#4F8F6B]" />
+                      <div>
+                        <div className="font-semibold text-[#12172B] dark:text-[#F6F3EC]">
+                          {profile?.name || 'Unknown Member'}
+                        </div>
+                        <div className="text-[11px] text-[#8A90AC]">
+                          {profile?.email || uid}{profile?.role ? ` \u2022 ${profile.role}` : ''}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-[#B8935F]/10 text-[#B8935F] border border-[#B8935F]/20">
+                        {isLead ? 'LEAD COUNSEL' : 'MEMBER'}
+                      </span>
+                      {canManageTeam && !isLead && (
+                        <button
+                          onClick={() => handleRemoveTeamMember(uid)}
+                          className="p-1 rounded text-[#8A90AC] hover:text-[#C1554A] hover:bg-[#C1554A]/10 transition"
+                          title="Remove from suit"
+                        >
+                          <UserX className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
-                  <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-[#B8935F]/10 text-[#B8935F] border border-[#B8935F]/20">
-                    MEMBER
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
