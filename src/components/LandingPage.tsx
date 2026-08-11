@@ -10,11 +10,20 @@ import {
 } from 'lucide-react';
 
 interface LandingPageProps {
-  setActiveTab: (tab: string) => void;
+  isAuthed: boolean;
+  setActiveTab?: (tab: string) => void;
   openAuthModal: () => void;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ setActiveTab, openAuthModal }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ isAuthed, setActiveTab, openAuthModal }) => {
+  const enterPractice = () => {
+    if (isAuthed && setActiveTab) {
+      setActiveTab('dashboard');
+    } else {
+      openAuthModal();
+    }
+  };
+
   return (
     <div className="w-full min-h-screen bg-[#12172B] text-[#F6F3EC] flex flex-col justify-between overflow-x-hidden text-[13px]">
       
@@ -37,17 +46,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setActiveTab, openAuth
         {/* CTA Group */}
         <div className="mt-8 flex flex-wrap justify-center gap-4">
           <button
-            onClick={() => setActiveTab('dashboard')}
+            onClick={enterPractice}
             className="flex items-center gap-2 px-6 py-3 rounded-lg bg-[#B8935F] hover:bg-[#8C6F49] text-[#12172B] font-bold text-sm shadow-sm transition"
           >
-            Enter Practice Registry <ArrowRight className="w-4 h-4" />
-          </button>
-
-          <button
-            onClick={openAuthModal}
-            className="flex items-center gap-2 px-6 py-3 rounded-lg border border-[rgba(184,147,95,0.3)] bg-[#1B2140] hover:bg-[#1B2140]/80 text-[#F6F3EC] font-semibold text-sm transition"
-          >
-            Sign In / Register Account
+            {isAuthed ? 'Enter Practice Registry' : 'Sign In / Register Account'} <ArrowRight className="w-4 h-4" />
           </button>
         </div>
 
