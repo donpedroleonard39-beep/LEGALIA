@@ -8,88 +8,66 @@ import {
   deleteDoc,
   query,
   where,
-  orderBy,
   addDoc,
-  serverTimestamp,
+  arrayUnion,
+  arrayRemove,
 } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import {
+  ref,
+  uploadBytesResumable,
+  getDownloadURL,
+  deleteObject,
+} from 'firebase/storage';
+import { db, storage } from '../firebase/config';
 import {
   Matter,
   MatterDocument,
   TimelineEvent,
-  MatterInvite,
   Reminder,
   AppNotification,
-  AuditLog,
   UserProfile,
+  UserRole,
 } from '../types';
-import { INITIAL_MATTERS, INITIAL_TIMELINE_EVENTS, INITIAL_DOCUMENTS } from '../utils/seedData';
 
 const MATTERS_COLLECTION = 'matters';
 const REMINDERS_COLLECTION = 'reminders';
 const NOTIFICATIONS_COLLECTION = 'notifications';
 const USERS_COLLECTION = 'users';
 
-// Initialize memory state as empty (no demo placeholders)
+// In-memory fallback used only if a Firestore call throws (e.g. transient
+// network error) - not a source of truth, and never pre-seeded with demo
+// data. If Firestore is reachable this is never consulted.
 let localMattersStore: Matter[] = [];
 let localTimelineStore: Record<string, TimelineEvent[]> = {};
 let localDocsStore: Record<string, MatterDocument[]> = {};
 let localRemindersStore: Reminder[] = [];
 let localNotificationsStore: AppNotification[] = [];
 
-// Demo IDs to automatically purge from Firestore if present
-const DEMO_MATTER_IDS = [
-  'matter_e968_2022',
-  'matter_e779_2021',
-  'matter_e357_2023',
-  'matter_e569_2022',
-  'matter_e104_2024',
-];
+// --- Matters ---
 
-export async function fetchAllMatters(userId?: string, role?: string): Promise<Matter[]> {
+/**
+ * Firm staff (admin/lawyer/paralegal) get every matter in the registry, which
+ * is what makes the Conflict Checker actually useful across the whole
+ * practice. Everyone else (role 'client') only gets matters they've been
+ * explicitly added to. This mirrors firestore.rules exactly - if you change
+ * one, change the other.
+ */
+export async function fetchAllMatters(userId: string, isInternalStaff: boolean): Promise<Matter[]> {
   try {
-    const querySnapshot = await getDocs(collection(db, MATTERS_COLLECTION));
-    if (!querySnapshot.empty) {
-      const realMatters: Matter[] = [];
-      const purgePromises: Promise<void>[] = [];
+    const matterCol = collection(db, MATTERS_COLLECTION);
+    const q = isInternalStaff
+      ? matterCol
+      : query(matterCol, where('teamMembers', 'array-contains', userId));
 
-      querySnapshot.forEach((d) => {
-        const data = d.data() as Matter;
-        // Check if document is a placeholder demo suit
-        if (DEMO_MATTER_IDS.includes(d.id) || data.createdBy === 'admin_demo') {
-          // Delete placeholder from Firestore permanently
-          purgePromises.push(deleteDoc(doc(db, MATTERS_COLLECTION, d.id)).catch(() => {}));
-        } else {
-          realMatters.push({ id: d.id, ...data });
-        }
-      });
-
-      if (purgePromises.length > 0) {
-        await Promise.all(purgePromises);
-        console.log(`Purged ${purgePromises.length} placeholder demo suit(s) from Firestore.`);
-      }
-
-      localMattersStore = realMatters;
-      return realMatters;
-    }
+    const querySnapshot = await getDocs(q);
+    const matters: Matter[] = [];
+    querySnapshot.forEach((d) => matters.push({ id: d.id, ...(d.data() as Omit<Matter, 'id'>) }));
+    localMattersStore = matters;
+    return matters;
   } catch (err) {
     console.warn('Firestore fetch notice:', err);
+    return localMattersStore;
   }
-  return localMattersStore;
-}
-
-export async function clearAllMatters(): Promise<void> {
-  try {
-    const querySnapshot = await getDocs(collection(db, MATTERS_COLLECTION));
-    const deletePromises: Promise<void>[] = [];
-    querySnapshot.forEach((d) => {
-      deletePromises.push(deleteDoc(doc(db, MATTERS_COLLECTION, d.id)));
-    });
-    await Promise.all(deletePromises);
-  } catch (err) {
-    console.warn('Firestore clear error:', err);
-  }
-  localMattersStore = [];
 }
 
 export async function fetchMatterById(id: string): Promise<Matter | null> {
@@ -107,7 +85,7 @@ export async function fetchMatterById(id: string): Promise<Matter | null> {
 
 export async function checkSuitNumberUnique(suitNumber: string, currentMatterId?: string): Promise<boolean> {
   const normalized = suitNumber.trim().toLowerCase();
-  
+
   try {
     const q = query(collection(db, MATTERS_COLLECTION), where('suitNumber', '==', suitNumber.trim()));
     const snap = await getDocs(q);
@@ -115,6 +93,7 @@ export async function checkSuitNumberUnique(suitNumber: string, currentMatterId?
       const match = snap.docs.find(d => d.id !== currentMatterId);
       if (match) return false;
     }
+    return true;
   } catch (err) {
     console.warn('Firestore unique check fallback to local:', err);
   }
@@ -133,7 +112,7 @@ export async function saveMatter(matterData: Omit<Matter, 'id' | 'createdAt' | '
 
   const newId = `matter_${Date.now()}`;
   const now = new Date().toISOString();
-  
+
   const newMatter: Matter = {
     ...matterData,
     id: newId,
@@ -144,15 +123,9 @@ export async function saveMatter(matterData: Omit<Matter, 'id' | 'createdAt' | '
     teamMembers: Array.from(new Set([...matterData.teamMembers, currentUserId])),
   };
 
-  try {
-    await setDoc(doc(db, MATTERS_COLLECTION, newId), newMatter);
-  } catch (err) {
-    console.warn('Firestore matter create fallback:', err);
-  }
-
+  await setDoc(doc(db, MATTERS_COLLECTION, newId), newMatter);
   localMattersStore.unshift(newMatter);
 
-  // Add initial timeline event
   await addTimelineEvent(newId, {
     date: matterData.filingDate,
     type: 'filing',
@@ -187,16 +160,11 @@ export async function updateMatterDetails(
     updatedAt: new Date().toISOString(),
   };
 
-  try {
-    await updateDoc(doc(db, MATTERS_COLLECTION, id), updatedFields);
-  } catch (err) {
-    console.warn('Firestore matter update fallback:', err);
-  }
+  await updateDoc(doc(db, MATTERS_COLLECTION, id), { ...updatedFields, updatedAt: updated.updatedAt });
 
   const idx = localMattersStore.findIndex((m) => m.id === id);
   if (idx !== -1) localMattersStore[idx] = updated;
 
-  // Log status change or update
   if (updatedFields.status && updatedFields.status !== existing.status) {
     await addTimelineEvent(id, {
       date: new Date().toISOString().split('T')[0],
@@ -205,18 +173,58 @@ export async function updateMatterDetails(
       createdBy: currentUserId,
       createdByName: currentUserName,
     });
+    await notifyMatterTeam(updated, `Suit ${updated.suitNumber} status changed to ${updatedFields.status.toUpperCase()}.`, 'status_change', currentUserId);
+  }
+
+  if (updatedFields.nextHearingDate && updatedFields.nextHearingDate !== existing.nextHearingDate) {
+    await notifyMatterTeam(
+      updated,
+      `Next hearing for ${updated.suitNumber} set for ${updatedFields.nextHearingDate}${updatedFields.purpose ? ` (${updatedFields.purpose})` : ''}.`,
+      'hearing_upcoming',
+      currentUserId
+    );
   }
 
   return updated;
 }
 
 export async function deleteMatterById(id: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, MATTERS_COLLECTION, id));
-  } catch (err) {
-    console.warn('Firestore delete matter fallback:', err);
-  }
+  await deleteDoc(doc(db, MATTERS_COLLECTION, id));
   localMattersStore = localMattersStore.filter((m) => m.id !== id);
+}
+
+// --- Team Membership ---
+
+export async function findUserByEmail(email: string): Promise<UserProfile | null> {
+  const normalized = email.trim().toLowerCase();
+  const q = query(collection(db, USERS_COLLECTION), where('email', '==', normalized));
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  return snap.docs[0].data() as UserProfile;
+}
+
+export async function fetchAllUsers(): Promise<UserProfile[]> {
+  const snap = await getDocs(collection(db, USERS_COLLECTION));
+  return snap.docs.map((d) => d.data() as UserProfile);
+}
+
+export async function addTeamMemberToMatter(matterId: string, uid: string): Promise<void> {
+  await updateDoc(doc(db, MATTERS_COLLECTION, matterId), {
+    teamMembers: arrayUnion(uid),
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function removeTeamMemberFromMatter(matterId: string, uid: string): Promise<void> {
+  await updateDoc(doc(db, MATTERS_COLLECTION, matterId), {
+    teamMembers: arrayRemove(uid),
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+/** Admin-only in practice - Firestore rules reject this unless the caller is an admin. */
+export async function updateUserRole(uid: string, role: UserRole): Promise<void> {
+  await updateDoc(doc(db, USERS_COLLECTION, uid), { role });
 }
 
 // --- Timeline Service ---
@@ -224,12 +232,11 @@ export async function fetchTimelineEvents(matterId: string): Promise<TimelineEve
   try {
     const subCol = collection(db, MATTERS_COLLECTION, matterId, 'timeline');
     const snap = await getDocs(subCol);
-    if (!snap.empty) {
-      const events: TimelineEvent[] = [];
-      snap.forEach((d) => events.push({ id: d.id, ...d.data() } as TimelineEvent));
-      events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      return events;
-    }
+    const events: TimelineEvent[] = [];
+    snap.forEach((d) => events.push({ id: d.id, ...d.data() } as TimelineEvent));
+    events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    localTimelineStore[matterId] = events;
+    return events;
   } catch (err) {
     console.warn('Firestore timeline fetch fallback:', err);
   }
@@ -247,12 +254,8 @@ export async function addTimelineEvent(
     createdAt: new Date().toISOString(),
   };
 
-  try {
-    const subCol = collection(db, MATTERS_COLLECTION, matterId, 'timeline');
-    await setDoc(doc(subCol, newEvent.id), newEvent);
-  } catch (err) {
-    console.warn('Firestore timeline add fallback:', err);
-  }
+  const subCol = collection(db, MATTERS_COLLECTION, matterId, 'timeline');
+  await setDoc(doc(subCol, newEvent.id), newEvent);
 
   if (!localTimelineStore[matterId]) localTimelineStore[matterId] = [];
   localTimelineStore[matterId].unshift(newEvent);
@@ -260,39 +263,80 @@ export async function addTimelineEvent(
   return newEvent;
 }
 
-// --- Documents Service ---
+// --- Documents Service (Firebase Storage + Firestore metadata) ---
 export async function fetchMatterDocuments(matterId: string): Promise<MatterDocument[]> {
   try {
     const subCol = collection(db, MATTERS_COLLECTION, matterId, 'documents');
     const snap = await getDocs(subCol);
-    if (!snap.empty) {
-      const docs: MatterDocument[] = [];
-      snap.forEach((d) => docs.push({ id: d.id, ...d.data() } as MatterDocument));
-      return docs;
-    }
+    const docs: MatterDocument[] = [];
+    snap.forEach((d) => docs.push({ id: d.id, ...d.data() } as MatterDocument));
+    docs.sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
+    localDocsStore[matterId] = docs;
+    return docs;
   } catch (err) {
     console.warn('Firestore docs fetch fallback:', err);
   }
   return localDocsStore[matterId] || [];
 }
 
+/**
+ * Uploads the actual file bytes to Firebase Storage at
+ * matters/{matterId}/{uid}_{timestamp}_{fileName}, then records the metadata
+ * + download URL in Firestore. onProgress receives 0-100.
+ */
 export async function uploadMatterDocument(
   matterId: string,
-  docData: Omit<MatterDocument, 'id' | 'matterId' | 'uploadedAt'>
+  file: File,
+  meta: {
+    docType: MatterDocument['docType'];
+    description?: string;
+    uploadedBy: string;
+    uploadedByName?: string;
+  },
+  onProgress?: (pct: number) => void
 ): Promise<MatterDocument> {
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const storagePath = `matters/${matterId}/${meta.uploadedBy}_${Date.now()}_${safeName}`;
+  const storageRef = ref(storage, storagePath);
+
+  const downloadURL = await new Promise<string>((resolve, reject) => {
+    const task = uploadBytesResumable(storageRef, file, { contentType: file.type });
+    task.on(
+      'state_changed',
+      (snapshot) => {
+        if (onProgress) {
+          onProgress(Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100));
+        }
+      },
+      reject,
+      async () => {
+        try {
+          resolve(await getDownloadURL(task.snapshot.ref));
+        } catch (e) {
+          reject(e);
+        }
+      }
+    );
+  });
+
   const newDoc: MatterDocument = {
-    ...docData,
     id: `doc_${Date.now()}`,
     matterId,
+    fileName: file.name,
+    storagePath,
+    downloadURL,
+    fileSize: file.size,
+    fileType: file.type,
+    docType: meta.docType,
+    uploadedBy: meta.uploadedBy,
+    uploadedByName: meta.uploadedByName,
     uploadedAt: new Date().toISOString(),
+    version: 1,
+    description: meta.description,
   };
 
-  try {
-    const subCol = collection(db, MATTERS_COLLECTION, matterId, 'documents');
-    await setDoc(doc(subCol, newDoc.id), newDoc);
-  } catch (err) {
-    console.warn('Firestore document add fallback:', err);
-  }
+  const subCol = collection(db, MATTERS_COLLECTION, matterId, 'documents');
+  await setDoc(doc(subCol, newDoc.id), newDoc);
 
   if (!localDocsStore[matterId]) localDocsStore[matterId] = [];
   localDocsStore[matterId].unshift(newDoc);
@@ -300,16 +344,28 @@ export async function uploadMatterDocument(
   return newDoc;
 }
 
+export async function deleteMatterDocument(matterId: string, matterDoc: MatterDocument): Promise<void> {
+  try {
+    await deleteObject(ref(storage, matterDoc.storagePath));
+  } catch (err) {
+    // If the storage object is already gone, still remove the Firestore record.
+    console.warn('Storage delete notice:', err);
+  }
+  await deleteDoc(doc(db, MATTERS_COLLECTION, matterId, 'documents', matterDoc.id));
+  if (localDocsStore[matterId]) {
+    localDocsStore[matterId] = localDocsStore[matterId].filter((d) => d.id !== matterDoc.id);
+  }
+}
+
 // --- Reminders Service ---
 export async function fetchUserReminders(userId: string): Promise<Reminder[]> {
   try {
     const q = query(collection(db, REMINDERS_COLLECTION), where('userId', '==', userId));
     const snap = await getDocs(q);
-    if (!snap.empty) {
-      const rems: Reminder[] = [];
-      snap.forEach((d) => rems.push({ id: d.id, ...d.data() } as Reminder));
-      return rems;
-    }
+    const rems: Reminder[] = [];
+    snap.forEach((d) => rems.push({ id: d.id, ...d.data() } as Reminder));
+    localRemindersStore = rems;
+    return rems;
   } catch (err) {
     console.warn('Firestore reminders fetch fallback:', err);
   }
@@ -324,22 +380,13 @@ export async function createReminder(reminder: Omit<Reminder, 'id' | 'createdAt'
     createdAt: new Date().toISOString(),
   };
 
-  try {
-    await setDoc(doc(db, REMINDERS_COLLECTION, newRem.id), newRem);
-  } catch (err) {
-    console.warn('Firestore reminder create fallback:', err);
-  }
-
+  await setDoc(doc(db, REMINDERS_COLLECTION, newRem.id), newRem);
   localRemindersStore.unshift(newRem);
   return newRem;
 }
 
 export async function deleteReminder(id: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, REMINDERS_COLLECTION, id));
-  } catch (err) {
-    console.warn('Firestore delete reminder fallback:', err);
-  }
+  await deleteDoc(doc(db, REMINDERS_COLLECTION, id));
   localRemindersStore = localRemindersStore.filter((r) => r.id !== id);
 }
 
@@ -348,11 +395,11 @@ export async function fetchNotifications(userId: string): Promise<AppNotificatio
   try {
     const q = query(collection(db, NOTIFICATIONS_COLLECTION), where('userId', '==', userId));
     const snap = await getDocs(q);
-    if (!snap.empty) {
-      const notifs: AppNotification[] = [];
-      snap.forEach((d) => notifs.push({ id: d.id, ...d.data() } as AppNotification));
-      return notifs;
-    }
+    const notifs: AppNotification[] = [];
+    snap.forEach((d) => notifs.push({ id: d.id, ...d.data() } as AppNotification));
+    notifs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    localNotificationsStore = notifs;
+    return notifs;
   } catch (err) {
     console.warn('Firestore notifications fetch fallback:', err);
   }
@@ -360,13 +407,35 @@ export async function fetchNotifications(userId: string): Promise<AppNotificatio
 }
 
 export async function markNotificationAsRead(id: string): Promise<void> {
-  try {
-    await updateDoc(doc(db, NOTIFICATIONS_COLLECTION, id), { read: true });
-  } catch (err) {
-    console.warn('Firestore update notification fallback:', err);
-  }
+  await updateDoc(doc(db, NOTIFICATIONS_COLLECTION, id), { read: true });
   const idx = localNotificationsStore.findIndex((n) => n.id === id);
   if (idx !== -1) localNotificationsStore[idx].read = true;
+}
+
+/** Notifies every team member on a matter except `excludeUid` (usually the actor). */
+export async function notifyMatterTeam(
+  matter: Matter,
+  message: string,
+  type: AppNotification['type'],
+  excludeUid?: string
+): Promise<void> {
+  const recipients = matter.teamMembers.filter((uid) => uid !== excludeUid);
+  await Promise.all(
+    recipients.map((uid) => {
+      const notif: Omit<AppNotification, 'id'> = {
+        userId: uid,
+        matterId: matter.id,
+        suitNumber: matter.suitNumber,
+        type,
+        message,
+        read: false,
+        createdAt: new Date().toISOString(),
+      };
+      return addDoc(collection(db, NOTIFICATIONS_COLLECTION), notif).catch((err) =>
+        console.warn('Notification create failed for', uid, err)
+      );
+    })
+  );
 }
 
 // --- Conflict of Interest Checker Service ---
