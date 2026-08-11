@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { Settings, Sun, Moon, Monitor, Bell, User, ShieldCheck, Trash2, Database } from 'lucide-react';
+import { Settings, Sun, Moon, Monitor, Bell, User, Database } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNotifications } from '../../context/NotificationContext';
-import { clearAllMatters } from '../../services/matterService';
 
 export const SettingsPage: React.FC = () => {
   const { currentUser, updateUserProfile } = useAuth();
@@ -190,29 +189,18 @@ export const SettingsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Database Management & Clean Slate */}
+        {/* Database Info */}
         <div className="legal-card p-6 space-y-4">
           <div className="font-semibold text-sm text-[#12172B] dark:text-[#F6F3EC] flex items-center gap-2">
             <Database className="w-4 h-4 text-[#B8935F]" />
-            Firestore Database Clean Slate
+            Cloud Firestore Connection
           </div>
           <p className="text-[13px] text-[#8A90AC]">
-            Connected to active Cloud Firestore instance. You can clear all cause list records to start with a 100% clean practice registry.
+            Connected to your practice's Cloud Firestore instance. Individual matters can be
+            deleted from that matter's detail page by the lead lawyer or a practice admin - there
+            is deliberately no single button here to bulk-delete the whole registry, since that
+            action can't be undone and would affect every user of this practice.
           </p>
-          <button
-            type="button"
-            onClick={async () => {
-              if (window.confirm('Are you sure you want to delete all cause list records from Cloud Firestore? This action cannot be undone.')) {
-                await clearAllMatters();
-                showToast('Database Cleared', 'All placeholder and test matters have been removed from Firestore.', 'info');
-                window.location.reload();
-              }
-            }}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 font-semibold text-[12px] hover:bg-red-500/20 transition"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            Purge All Registry Matters from Firestore
-          </button>
         </div>
 
         <div className="flex justify-end">
