@@ -14,7 +14,11 @@ function escapeJoin(values: string[], sep: string): string {
   return values.map(escapeHtml).join(sep);
 }
 
-export function generatePrintableBrief(matter: Matter, timeline: TimelineEvent[] = [], documents: MatterDocument[] = []) {
+export function generatePrintableBrief(
+  matter: Matter, 
+  timeline: TimelineEvent[] = [], 
+  documents: MatterDocument[] = []
+) {
   const printWindow = window.open('', '_blank', 'width=900,height=1000');
   if (!printWindow) return;
 
@@ -42,23 +46,41 @@ export function generatePrintableBrief(matter: Matter, timeline: TimelineEvent[]
       </head>
       <body>
         <div style="text-align: right; margin-bottom: 20px;">
-          <button onclick="window.print()" style="padding: 10px 20px; background: #1a365d; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">Download as PDF / Print</button>
+          <button onclick="window.print()" style="padding: 10px 20px; background: #1a365d; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+            Download as PDF / Print
+          </button>
         </div>
         <div class="header">
           <div class="title">IN THE ${escapeHtml(matter.court.toUpperCase())}</div>
           <div class="subtitle">SUIT NO: ${escapeHtml(matter.suitNumber)}</div>
         </div>
         <div class="grid">
-          <div class="box"><div class="box-title">Claimant / Plaintiff</div><div class="value">${escapeJoin(matter.plaintiffs, '  
-')}</div></div>
-          <div class="box"><div class="box-title">Respondent / Defendant</div><div class="value">${escapeJoin(matter.defendants, '  
-')}</div></div>
-          <div class="box"><div class="box-title">Presiding Judge</div><div class="value">${escapeHtml(matter.judge) || 'Not Assigned'}</div></div>
-          <div class="box"><div class="box-title">Lead Counsel</div><div class="value">${escapeHtml(matter.ownerName)}</div></div>
+          <div class="box">
+            <div class="box-title">Claimant / Plaintiff</div>
+            <div class="value">${escapeJoin(matter.plaintiffs, '  
+')}</div>
+          </div>
+          <div class="box">
+            <div class="box-title">Respondent / Defendant</div>
+            <div class="value">${escapeJoin(matter.defendants, '  
+')}</div>
+          </div>
+          <div class="box">
+            <div class="box-title">Presiding Judge</div>
+            <div class="value">${escapeHtml(matter.judge) || 'Not Assigned'}</div>
+          </div>
+          <div class="box">
+            <div class="box-title">Lead Counsel</div>
+            <div class="value">${escapeHtml(matter.ownerName)}</div>
+          </div>
         </div>
         <div class="section-heading">Brief Summary</div>
-        <div class="value" style="padding: 15px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">${escapeHtml(matter.summaryNotes) || 'No summary recorded.'}</div>
-        <div class="footer">Generated via LEGALIA &bull; Confidential Legal Record &bull; ${new Date().toLocaleString()}</div>
+        <div class="value" style="padding: 15px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
+          ${escapeHtml(matter.summaryNotes) || 'No summary recorded.'}
+        </div>
+        <div class="footer">
+          Generated via LEGALIA &bull; Confidential Legal Record &bull; ${new Date().toLocaleString()}
+        </div>
       </body>
     </html>
   `;
