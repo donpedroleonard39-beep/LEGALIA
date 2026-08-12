@@ -19,7 +19,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     localStorage.setItem('legal_theme', theme);
-    
+
     const root = document.documentElement;
     let effectiveDark = false;
 
