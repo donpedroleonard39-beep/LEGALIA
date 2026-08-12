@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type ReactNode } from 'react';
 import { 
   ArrowLeft, Calendar, Clock, Download, FileText, 
   History, Info, MessageSquare, Plus, Printer, 
@@ -111,7 +111,7 @@ export function MatterDetail({ matter, onBack, onRefresh }: MatterDetailProps) {
   );
 }
 
-function TabButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+function TabButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: ReactNode; label: string }) {
   return (
     <button 
       onClick={onClick}
