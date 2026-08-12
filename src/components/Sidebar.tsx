@@ -1,12 +1,5 @@
-import React from 'react';
-import { motion } from 'motion/react';
-import {
-  LayoutDashboard,
-  Gavel,
-  Clock,
-  Bell,
-  PlusCircle,
-} from 'lucide-react';
+import type { ReactNode } from 'react';
+import { Bell, CalendarClock, Gavel, LayoutDashboard, Plus, ShieldCheck } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -14,93 +7,119 @@ interface SidebarProps {
   openNewMatterModal: () => void;
 }
 
-// Everyone gets the same nav now - there is no staff/client split anymore.
-// This is deliberately short: Dashboard, Matters, New Matter, Reminders,
-// Notifications. Settings, the Statutory Calculator, and sign-out live in
-// the avatar menu in Navbar.tsx, not here - see the earlier discussion on
-// keeping the always-used items one tap away and the occasional ones in an
-// overflow.
 const navItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'matters', label: 'Matters', icon: Gavel },
-  { id: 'reminders', label: 'Reminders', icon: Clock },
-  { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'dashboard', label: 'Workspace', caption: 'Your daily desk', icon: LayoutDashboard },
+  { id: 'matters', label: 'Matter register', caption: 'Private proceedings', icon: Gavel },
+  { id: 'reminders', label: 'Hearing diary', caption: 'Dates & alerts', icon: CalendarClock },
+  { id: 'notifications', label: 'Notifications', caption: 'Matter activity', icon: Bell }
 ];
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, openNewMatterModal }) => {
+export function Sidebar({ activeTab, setActiveTab, openNewMatterModal }: SidebarProps) {
   return (
     <>
-      {/* Desktop icon rail - lg and up */}
-      <aside className="hidden lg:flex w-20 shrink-0 border-r border-[var(--border-subtle)] bg-[var(--bg-surface)] flex-col items-center justify-between py-6 transition-colors">
-        <div className="flex flex-col items-center gap-2">
-          <button onClick={openNewMatterModal} className="icon-rail-item mb-2" style={{ color: 'var(--gold)' }}>
-            <PlusCircle className="w-5 h-5" />
-            <span className="icon-rail-tooltip">New Matter</span>
-          </button>
+      <aside className="hidden w-[230px] shrink-0 flex-col border-r border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-5 lg:flex">
+        <div className="mb-5 px-3">
+          <p className="eyebrow">Practice desk</p>
+          <p className="mt-2 text-[11px] leading-5 text-[var(--text-muted)]">
+            A clear place for the work that follows you into court.
+          </p>
+        </div>
 
+        <button onClick={openNewMatterModal} className="button-primary mb-5 w-full">
+          <Plus className="h-4 w-4" /> Open a matter
+        </button>
+
+        <nav className="space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeTab === item.id;
+            const active = activeTab === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`icon-rail-item ${isActive ? 'active' : ''}`}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition ${
+                  active
+                    ? 'bg-[var(--gold-soft)] text-[var(--gold)]'
+                    : 'text-[var(--text-muted)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-main)]'
+                }`}
               >
-                <Icon className="w-5 h-5" />
-                <span className="icon-rail-tooltip">{item.label}</span>
+                <Icon className="h-[18px] w-[18px] shrink-0" />
+                <span className="min-w-0">
+                  <span className={`block text-[12px] font-semibold ${active ? 'text-[var(--gold)]' : 'text-[var(--text-main)]'}`}>
+                    {item.label}
+                  </span>
+                  <span className="mt-0.5 block truncate text-[10px] opacity-75">
+                    {item.caption}
+                  </span>
+                </span>
               </button>
             );
           })}
+        </nav>
+
+        <div className="mt-auto rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)] p-3">
+          <ShieldCheck className="h-4 w-4 text-[var(--gold)]" />
+          <p className="mt-2 text-[11px] font-semibold text-[var(--text-main)]">
+            Matter-specific access
+          </p>
+          <p className="mt-1 text-[10px] leading-4 text-[var(--text-muted)]">
+            People see only the matters they belong to.
+          </p>
         </div>
       </aside>
 
-      {/* Mobile bottom tab bar - below lg */}
       <nav className="bottom-tab-bar lg:hidden">
-        <div className="grid grid-cols-5 items-center px-1 py-1.5">
-          <button
+        <div className="grid grid-cols-5 items-end px-1 py-1.5">
+          <MobileTab
+            id="dashboard"
+            label="Home"
+            icon={<LayoutDashboard />}
+            activeTab={activeTab}
             onClick={() => setActiveTab('dashboard')}
-            className={`bottom-tab-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-          >
-            <LayoutDashboard className="w-5 h-5" />
-            Home
-          </button>
-
-          <button
+          />
+          <MobileTab
+            id="matters"
+            label="Matters"
+            icon={<Gavel />}
+            activeTab={activeTab}
             onClick={() => setActiveTab('matters')}
-            className={`bottom-tab-item ${activeTab === 'matters' ? 'active' : ''}`}
-          >
-            <Gavel className="w-5 h-5" />
-            Matters
-          </button>
-
+          />
           <button onClick={openNewMatterModal} className="flex flex-col items-center justify-center">
-            <motion.div
-              whileTap={{ scale: 0.9 }}
-              className="w-11 h-11 -mt-5 rounded-full flex items-center justify-center shadow-md"
-              style={{ backgroundColor: 'var(--gold)' }}
-            >
-              <PlusCircle className="w-6 h-6" style={{ color: 'var(--ink-raised)' }} />
-            </motion.div>
+            <span className="-mt-5 flex h-12 w-12 items-center justify-center rounded-full border-4 border-[var(--bg-base)] bg-[var(--gold)] text-[var(--ink-raised)] shadow-lg">
+              <Plus className="h-6 w-6" />
+            </span>
+            <span className="mt-1 text-[10px] font-semibold text-[var(--text-muted)]">New</span>
           </button>
-
-          <button
+          <MobileTab
+            id="reminders"
+            label="Diary"
+            icon={<CalendarClock />}
+            activeTab={activeTab}
             onClick={() => setActiveTab('reminders')}
-            className={`bottom-tab-item ${activeTab === 'reminders' ? 'active' : ''}`}
-          >
-            <Clock className="w-5 h-5" />
-            Reminders
-          </button>
-
-          <button
+          />
+          <MobileTab
+            id="notifications"
+            label="Alerts"
+            icon={<Bell />}
+            activeTab={activeTab}
             onClick={() => setActiveTab('notifications')}
-            className={`bottom-tab-item ${activeTab === 'notifications' ? 'active' : ''}`}
-          >
-            <Bell className="w-5 h-5" />
-            Alerts
-          </button>
+          />
         </div>
       </nav>
     </>
   );
-};
+}
+
+function MobileTab({ id, label, icon, activeTab, onClick }: { id: string; label: string; icon: ReactNode; activeTab: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`bottom-tab-item ${activeTab === id ? 'active' : ''}`}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
+}
+
+export default Sidebar;
