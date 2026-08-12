@@ -89,8 +89,16 @@ service cloud.firestore {
 
     // ---------- Reminders (private, per-user) ----------
     match /reminders/{reminderId} {
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      // A reminder can be created or refreshed for yourself, or for any
+      // fellow member of a matter you also belong to (covers automatic
+      // hearing-date reminders fanned out to every member on save).
+      allow create, update: if isSignedIn() && (
+        request.resource.data.userId == request.auth.uid ||
+        (request.resource.data.matterId is string &&
+         isMember(request.resource.data.matterId))
+      );
     }
 
     // ---------- Notifications (private, per-user) ----------
