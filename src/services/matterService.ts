@@ -71,14 +71,53 @@ export async function saveMatter(
     createdByName: name, createdAt: now, updatedAt: now 
   };
   await setDoc(doc(db, MATTERS_COLLECTION, id), matter);
+  if (matter.nextHearingDate) {
+    await syncHearingReminders(matter, matter.nextHearingDate);
+  }
   return matter;
 }
 
 export async function updateMatterDetails(id: string, fields: Partial<Matter>): Promise<void> {
+  const before = await fetchMatterById(id);
   await updateDoc(doc(db, MATTERS_COLLECTION, id), { 
     ...fields, 
     updatedAt: new Date().toISOString() 
   });
+  const hearingChanged = 'nextHearingDate' in fields && fields.nextHearingDate !== before?.nextHearingDate;
+  if (hearingChanged) {
+    const after = await fetchMatterById(id);
+    if (after?.nextHearingDate) {
+      await syncHearingReminders(after, after.nextHearingDate);
+    }
+  }
+}
+
+// Creates (or refreshes) a hearing reminder for every member of a matter,
+// timed to fire the morning before the hearing. Uses a deterministic
+// document ID keyed on matter + member + date so re-saving the same
+// hearing date never creates duplicate reminders - only a genuinely new
+// date produces a new reminder.
+async function syncHearingReminders(matter: Matter, hearingDate: string): Promise<void> {
+  const remindAt = new Date(`${hearingDate}T07:00:00`);
+  remindAt.setDate(remindAt.getDate() - 1);
+  const message = `Hearing tomorrow for ${matter.suitNumber} - ${matter.title}${matter.purpose ? ` (${matter.purpose})` : ''}.`;
+
+  const memberIds = Object.keys(matter.members);
+  await Promise.all(memberIds.map(async (uid) => {
+    const reminderId = `hr_${matter.id}_${uid}_${hearingDate}`;
+    const reminder: Reminder = {
+      id: reminderId,
+      userId: uid,
+      matterId: matter.id,
+      suitNumber: matter.suitNumber,
+      remindAt: remindAt.toISOString(),
+      message,
+      channel: ['email', 'inApp'],
+      fired: false,
+      createdAt: new Date().toISOString(),
+    };
+    await setDoc(doc(db, REMINDERS_COLLECTION, reminderId), reminder);
+  }));
 }
 
 export async function deleteMatterById(id: string): Promise<void> {
