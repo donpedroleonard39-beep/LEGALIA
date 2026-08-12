@@ -4,40 +4,42 @@
 
 @layer base {
   :root {
-    --ink: #12172B;
-    --ink-raised: #1B2140;
-    --paper: #F5F2EA;
+    --ink: #1A2338;
+    --ink-raised: #131B2E;
+    --paper: #FBF9F4;
     --paper-card: #FFFFFF;
-    --brass: #B8935F;
-    --brass-dim: #8C6F49;
-    --verdict-green: #2E7D52;
+    --gold: #9A7A4F;
+    --gold-dim: #7C6340;
+    --verdict-green: #3A7A5C;
     --caution-amber: #B4781A;
     --alert-red: #C13B30;
-    --ink-muted: #5C6278;
+    --ink-muted: #6B6F7D;
 
     --font-serif: 'Source Serif 4', Georgia, serif;
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-mono: 'IBM Plex Mono', monospace;
 
-    /* Light Mode default assignments */
-    --bg-base: #F5F2EA;
+    --bg-base: #FBF9F4;
     --bg-surface: #FFFFFF;
-    --bg-surface-hover: #F0EBE0;
-    --text-main: #12172B;
-    --text-muted: #5C6278;
-    --border-subtle: rgba(184, 147, 95, 0.22);
-    --card-shadow: 0 1px 4px rgba(18, 23, 43, 0.06);
+    --bg-surface-hover: #F5F1E6;
+    --text-main: #1A2338;
+    --text-muted: #6B6F7D;
+    --border-subtle: rgba(154, 122, 79, 0.22);
+    --card-shadow: 0 1px 4px rgba(26, 35, 56, 0.06);
   }
 
   .dark {
-    /* Dark Mode assignments */
-    --bg-base: #12172B;
-    --bg-surface: #1B2140;
-    --bg-surface-hover: #232A50;
-    --text-main: #F6F3EC;
-    --text-muted: #8A90AC;
-    --border-subtle: rgba(184, 147, 95, 0.2);
+    --ink-muted: #8B93A8;
+    --bg-base: #131B2E;
+    --bg-surface: #1A2338;
+    --bg-surface-hover: #212C46;
+    --text-main: #F5F1E8;
+    --text-muted: #8B93A8;
+    --border-subtle: rgba(201, 166, 107, 0.2);
     --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    --gold: #C9A66B;
+    --gold-dim: #B08F5C;
+    --verdict-green: #5FA382;
   }
 
   body {
@@ -58,7 +60,6 @@
   }
 }
 
-/* Legal Card Elevation & Radius Standards */
 .legal-card {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
@@ -69,18 +70,17 @@
 
 .legal-card-hover:hover {
   transform: translateY(-2px);
-  border-color: rgba(184, 147, 95, 0.4);
+  border-color: rgba(154, 122, 79, 0.4);
 }
 
 .legal-hero-panel {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-left: 4px solid var(--brass);
+  border-left: 4px solid var(--gold);
   border-radius: 20px;
   box-shadow: var(--card-shadow);
 }
 
-/* Docket Stamp Motif */
 .docket-stamp {
   display: inline-flex;
   align-items: center;
@@ -113,45 +113,114 @@
   line-height: 1.5;
 }
 
-/* Docket Stamp Colors */
 .docket-stamp-active {
-  color: var(--brass);
-  border-color: var(--brass);
-  background-color: rgba(184, 147, 95, 0.1);
+  color: var(--gold);
+  border-color: var(--gold);
+  background-color: rgba(154, 122, 79, 0.1);
 }
 
 .docket-stamp-won {
   color: var(--verdict-green);
   border-color: var(--verdict-green);
-  background-color: rgba(79, 143, 107, 0.1);
+  background-color: rgba(58, 122, 92, 0.1);
 }
 
 .docket-stamp-adjourned, .docket-stamp-pending {
   color: var(--caution-amber);
   border-color: var(--caution-amber);
-  background-color: rgba(201, 154, 61, 0.1);
+  background-color: rgba(180, 120, 26, 0.1);
 }
 
 .docket-stamp-lost, .docket-stamp-urgent {
   color: var(--alert-red);
   border-color: var(--alert-red);
-  background-color: rgba(193, 85, 74, 0.1);
+  background-color: rgba(193, 59, 48, 0.1);
 }
 
-/* Icon Container 32px Standard */
 .icon-box-32 {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background-color: rgba(184, 147, 95, 0.12);
-  color: var(--brass);
+  background-color: rgba(154, 122, 79, 0.12);
+  color: var(--gold);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-/* Custom refined scrollbar for legal tables & drawers */
+.icon-rail-item {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: background-color 150ms ease-out, color 150ms ease-out;
+  position: relative;
+}
+
+.icon-rail-item:hover {
+  background-color: var(--bg-surface-hover);
+  color: var(--text-main);
+}
+
+.icon-rail-item.active {
+  background-color: rgba(154, 122, 79, 0.14);
+  color: var(--gold);
+}
+
+.icon-rail-tooltip {
+  position: absolute;
+  left: 100%;
+  margin-left: 12px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background-color: var(--ink-raised);
+  color: var(--paper);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 120ms ease-out, transform 120ms ease-out;
+  z-index: 50;
+}
+
+.icon-rail-item:hover .icon-rail-tooltip {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.bottom-tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  background-color: var(--bg-surface);
+  border-top: 1px solid var(--border-subtle);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.bottom-tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 6px 0;
+}
+
+.bottom-tab-item.active {
+  color: var(--gold);
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -162,11 +231,10 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(184, 147, 95, 0.25);
+  background: rgba(154, 122, 79, 0.25);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(184, 147, 95, 0.45);
+  background: rgba(154, 122, 79, 0.45);
 }
-
