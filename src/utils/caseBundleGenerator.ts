@@ -79,7 +79,7 @@ export function printCaseBundle(matter: Matter, timeline: TimelineEvent[], docum
           </div>
           <div class="box">
             <div class="box-title">LEAD LAWYER IN CHARGE</div>
-            <div class="value">${escapeHtml(matter.leadLawyerName || matter.leadLawyer)}</div>
+            <div class="value">${escapeHtml(matter.ownerName || matter.ownerId)}</div>
           </div>
           <div class="box">
             <div class="box-title">CURRENT STATUS</div>
