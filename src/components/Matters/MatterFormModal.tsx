@@ -40,7 +40,7 @@ export function MatterFormModal({ isOpen, onClose, matterToEdit, onSaved }: Matt
       if (!unique) { setErrorMessage(`Suit number “${form.suitNumber}” is already in use.`); return; }
       const base = { suitNumber: form.suitNumber.trim(), title: form.title.trim(), court: form.court.trim(), judge: form.judge.trim(), plot: form.plot.trim(), plaintiffs: splitPeople(form.plaintiffs), defendants: splitPeople(form.defendants), status: form.status, filingDate: form.filingDate, nextHearingDate: form.nextHearingDate || undefined, purpose: form.purpose.trim(), appearances: form.appearances.trim(), summaryNotes: form.summaryNotes.trim() };
       if (matterToEdit) {
-        await updateMatterDetails(matterToEdit.id, base, currentUser.uid, currentUser.name);
+        await updateMatterDetails(matterToEdit.id, base);
         showToast('Matter updated', `The record for ${base.suitNumber} is current.`, 'success');
       } else {
         await saveMatter({ ...base, plaintiffs: base.plaintiffs.length ? base.plaintiffs : ['Claimant'], defendants: base.defendants.length ? base.defendants : ['Respondent'], createdBy: currentUser.uid, createdByName: currentUser.name }, currentUser.uid, currentUser.name);
