@@ -57,13 +57,11 @@ export function generatePrintableBrief(
         <div class="grid">
           <div class="box">
             <div class="box-title">Claimant / Plaintiff</div>
-            <div class="value">${escapeJoin(matter.plaintiffs, '  
-')}</div>
+            <div class="value">${escapeJoin(matter.plaintiffs, '<br/>')}</div>
           </div>
           <div class="box">
             <div class="box-title">Respondent / Defendant</div>
-            <div class="value">${escapeJoin(matter.defendants, '  
-')}</div>
+            <div class="value">${escapeJoin(matter.defendants, '<br/>')}</div>
           </div>
           <div class="box">
             <div class="box-title">Presiding Judge</div>
