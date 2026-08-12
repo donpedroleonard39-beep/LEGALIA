@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'lawyer' | 'paralegal' | 'client';
+export type MatterPermission = 'owner' | 'editor' | 'viewer';
 
 export type MatterStatus = 'active' | 'adjourned' | 'closed' | 'won' | 'lost';
 
@@ -10,7 +10,6 @@ export interface UserProfile {
   uid: string;
   name: string;
   email: string;
-  role: UserRole;
   matterAccess: string[]; // List of matterIds the user is granted access to
   notifyPrefs: {
     email: boolean;
@@ -32,9 +31,9 @@ export interface Matter {
   plot?: string; // Plot / Property subject matter (e.g., S/10 Plot 33)
   plaintiffs: string[];
   defendants: string[];
-  leadLawyer: string; // uid of lead lawyer
-  leadLawyerName?: string;
-  teamMembers: string[]; // uids of authorized users
+  ownerId: string; // uid of the person who created (and permanently owns) this matter
+  ownerName?: string;
+  members: Record<string, MatterPermission>; // uid -> permission, owner always present as 'owner'
   status: MatterStatus;
   filingDate: string; // YYYY-MM-DD
   nextHearingDate?: string; // YYYY-MM-DD
@@ -81,11 +80,13 @@ export interface MatterInvite {
   id: string;
   matterId: string;
   matterSuitNumber?: string;
+  matterTitle?: string;
   email: string;
   invitedBy: string;
   invitedByName?: string;
   status: 'pending' | 'accepted' | 'declined';
-  role: UserRole;
+  permission: MatterPermission; // 'editor' | 'viewer' (an invite can never grant 'owner')
+  token: string; // opaque token embedded in the invite link, checked by Firestore rules on accept
   createdAt: string;
 }
 
