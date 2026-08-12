@@ -26,6 +26,33 @@ export async function fetchAllMatters(userId: string): Promise<Matter[]> {
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 }
 
+export async function checkSuitNumberUnique(suitNumber: string, excludeId?: string): Promise<boolean> {
+  const q = query(
+    collection(db, MATTERS_COLLECTION),
+    where('suitNumber', '==', suitNumber.trim())
+  );
+  const snap = await getDocs(q);
+  return snap.docs.every((d) => d.id === excludeId);
+}
+
+export function searchConflictOfInterest(searchTerm: string, matters: Matter[]): {
+  directPartyMatches: Matter[];
+  plotMatches: Matter[];
+  counselMatches: Matter[];
+} {
+  const term = searchTerm.trim().toLowerCase();
+  if (!term) {
+    return { directPartyMatches: [], plotMatches: [], counselMatches: [] };
+  }
+  const directPartyMatches = matters.filter((m) =>
+    m.plaintiffs.some((p) => p.toLowerCase().includes(term)) ||
+    m.defendants.some((d) => d.toLowerCase().includes(term))
+  );
+  const plotMatches = matters.filter((m) => (m.plot || '').toLowerCase().includes(term));
+  const counselMatches = matters.filter((m) => (m.appearances || '').toLowerCase().includes(term));
+  return { directPartyMatches, plotMatches, counselMatches };
+}
+
 export async function fetchMatterById(id: string): Promise<Matter | null> {
   const snap = await getDoc(doc(db, MATTERS_COLLECTION, id));
   return snap.exists() ? { id: snap.id, ...snap.data() } as Matter : null;
