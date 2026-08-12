@@ -7,88 +7,83 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // NOTE: only call this where the caller's /users/{uid} doc is expected to exist
-    // (i.e. after sign-up, the client always creates it immediately).
-    function myRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    function matterDoc(matterId) {
+      return get(/databases/$(database)/documents/matters/$(matterId));
     }
 
-    function isAdmin() {
-      return isSignedIn() && myRole() == 'admin';
-    }
-
-    // Firm staff (admin/lawyer/paralegal) get firm-wide READ visibility on the
-    // matter registry so conflict-of-interest checks are reliable across the
-    // whole practice. Clients never get this - they only ever see matters they
-    // are explicitly added to. This does NOT extend to a matter's documents,
-    // timeline, or invites subcollections - those stay restricted to the
-    // matter's own team + admins (see below).
-    function isInternalStaff() {
-      return isSignedIn() && myRole() in ['admin', 'lawyer', 'paralegal'];
-    }
-
-    function isMatterTeamMember(matterId) {
+    function isMember(matterId) {
       return isSignedIn() &&
-        request.auth.uid in
-          get(/databases/$(database)/documents/matters/$(matterId)).data.teamMembers;
+        request.auth.uid in matterDoc(matterId).data.members;
+    }
+
+    function memberPermission(matterId) {
+      return matterDoc(matterId).data.members[request.auth.uid];
+    }
+
+    function canEdit(matterId) {
+      return isMember(matterId) &&
+        memberPermission(matterId) in ['owner', 'editor'];
+    }
+
+    function isOwner(matterId) {
+      return isMember(matterId) && memberPermission(matterId) == 'owner';
     }
 
     // ---------- Users ----------
+    // Every signed-in user can read any user's public profile (needed to
+    // resolve names/emails for matter members, invites, notifications).
+    // A user may only ever create or update their OWN document - there is no
+    // global role field left to protect, so this is intentionally simple.
     match /users/{uid} {
-      // Any signed-in user may read profiles (needed to resolve names/emails
-      // of teammates and to look up a colleague by email when granting matter
-      // access). Profiles hold work name/email/role only - no sensitive data.
       allow read: if isSignedIn();
-
-      // A user may only ever create their own profile document.
       allow create: if isSignedIn() && request.auth.uid == uid;
-
-      // A user may update their own profile, but may NOT change their own
-      // `role` (prevents self-promotion to admin). An admin may update any
-      // profile, including role, to manage the team.
-      allow update: if isSignedIn() && (
-        (request.auth.uid == uid && request.resource.data.role == resource.data.role) ||
-        isAdmin()
-      );
-
+      allow update: if isSignedIn() && request.auth.uid == uid;
       allow delete: if false;
     }
 
     // ---------- Matters ----------
     match /matters/{matterId} {
-      allow read: if isSignedIn() && (
-        isInternalStaff() || request.auth.uid in resource.data.teamMembers
-      );
+      // Only members (owner/editor/viewer) can read a matter. There is no
+      // firm-wide visibility anymore - every user only ever sees matters
+      // they were added to, starting with the ones they create.
+      allow read: if isMember(matterId);
 
-      // Only firm staff may open new matters, and only onto a team that
-      // includes themselves.
-      allow create: if isSignedIn() && isInternalStaff() &&
-        request.auth.uid in request.resource.data.teamMembers;
+      // Anyone signed in can create a matter, but only as themselves: they
+      // must be the ownerId, and must appear in members as 'owner'. This is
+      // what replaces the old "admin/lawyer/paralegal only" restriction.
+      allow create: if isSignedIn() &&
+        request.resource.data.ownerId == request.auth.uid &&
+        request.resource.data.members[request.auth.uid] == 'owner';
 
-      allow update: if isSignedIn() && (
-        (request.auth.uid in resource.data.teamMembers && isInternalStaff()) || isAdmin()
-      );
+      // Editors/owner can update matter fields, but only the owner may
+      // change ownerId or edit the members map directly (member changes
+      // normally go through the invite-accept flow below, or owner-only
+      // removal handled client-side by an owner update).
+      allow update: if isOwner(matterId) ||
+        (canEdit(matterId) &&
+         request.resource.data.ownerId == resource.data.ownerId &&
+         request.resource.data.members == resource.data.members);
 
-      allow delete: if isSignedIn() && (
-        request.auth.uid == resource.data.leadLawyer || isAdmin()
-      );
+      allow delete: if isOwner(matterId);
 
-      // Clients on the team can read their own case's documents/timeline
-      // (a lightweight "client portal" view) but never write to them - only
-      // internal staff (or an admin) can add/edit/delete case content.
       match /documents/{docId} {
-        allow read: if isMatterTeamMember(matterId) || isAdmin();
-        allow write: if (isMatterTeamMember(matterId) && isInternalStaff()) || isAdmin();
+        allow read: if isMember(matterId);
+        allow write: if canEdit(matterId);
       }
 
       match /timeline/{eventId} {
-        allow read: if isMatterTeamMember(matterId) || isAdmin();
-        allow write: if (isMatterTeamMember(matterId) && isInternalStaff()) || isAdmin();
+        allow read: if isMember(matterId);
+        allow write: if canEdit(matterId);
       }
 
-      // Managing who's on the team is staff-only, full stop.
+      // Invites live under the matter they belong to. Only the owner can
+      // create or manage them. Anyone signed in may READ a single invite by
+      // its id (needed to show "You've been invited to Suit X" before the
+      // invitee is a member yet) - the token itself, not Firestore rules, is
+      // what keeps invite links unguessable.
       match /invites/{inviteId} {
-        allow read, write: if (isMatterTeamMember(matterId) && isInternalStaff()) || isAdmin();
+        allow read: if isSignedIn();
+        allow create, update, delete: if isOwner(matterId);
       }
     }
 
@@ -102,13 +97,12 @@ service cloud.firestore {
     match /notifications/{notifId} {
       allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
 
-      // A notification can be created for yourself, or for a teammate on a
-      // matter you both share (e.g. "document added", "hearing scheduled"),
-      // or by an admin acting on any matter.
+      // A notification can be created for yourself, or for any member of a
+      // matter you are also a member of (covers "notify the team" writes).
       allow create: if isSignedIn() && (
         request.resource.data.userId == request.auth.uid ||
         (request.resource.data.matterId is string &&
-         (isMatterTeamMember(request.resource.data.matterId) || isAdmin()))
+         isMember(request.resource.data.matterId))
       );
     }
   }
