@@ -43,7 +43,7 @@ export function exportMattersToCsv(matters: Matter[], filenamePrefix: string = '
     escapeCsvField(m.plot || ''),
     escapeCsvField(m.plaintiffs ? m.plaintiffs.join('; ') : ''),
     escapeCsvField(m.defendants ? m.defendants.join('; ') : ''),
-    escapeCsvField(m.leadLawyerName || m.leadLawyer),
+    escapeCsvField(m.ownerName || m.ownerId),
     escapeCsvField(m.filingDate),
     escapeCsvField(m.nextHearingDate || ''),
     escapeCsvField(m.purpose || ''),
