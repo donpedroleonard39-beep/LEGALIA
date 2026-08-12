@@ -18,10 +18,10 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
-// Initialize Firestore with specific databaseId if provided
-export const db = firebaseConfigJson.firestoreDatabaseId
-  ? getFirestore(app, firebaseConfigJson.firestoreDatabaseId)
-  : getFirestore(app);
+// Use the project's default Firestore database. The applet config does not
+// expose a named database id, so passing one here only creates a type/runtime
+// mismatch during deployment.
+export const db = getFirestore(app);
 
 export const storage = getStorage(app);
 
