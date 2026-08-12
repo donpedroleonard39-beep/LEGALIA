@@ -9,8 +9,6 @@ import {
   query,
   where,
   addDoc,
-  arrayUnion,
-  arrayRemove,
 } from 'firebase/firestore';
 import {
   ref,
@@ -26,7 +24,8 @@ import {
   Reminder,
   AppNotification,
   UserProfile,
-  UserRole,
+  MatterInvite,
+  MatterPermission,
 } from '../types';
 
 const MATTERS_COLLECTION = 'matters';
@@ -43,25 +42,27 @@ let localDocsStore: Record<string, MatterDocument[]> = {};
 let localRemindersStore: Reminder[] = [];
 let localNotificationsStore: AppNotification[] = [];
 
+function genToken(): string {
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 // --- Matters ---
 
 /**
- * Firm staff (admin/lawyer/paralegal) get every matter in the registry, which
- * is what makes the Conflict Checker actually useful across the whole
- * practice. Everyone else (role 'client') only gets matters they've been
- * explicitly added to. This mirrors firestore.rules exactly - if you change
- * one, change the other.
+ * Every user only ever sees matters they are a member of (owner, editor, or
+ * viewer) - there is no firm-wide registry view anymore. This mirrors
+ * firestore.rules exactly: `isMember(matterId)` there is the same check as
+ * "uid is a key in members" here. If you change one, change the other.
  */
-export async function fetchAllMatters(userId: string, isInternalStaff: boolean): Promise<Matter[]> {
+export async function fetchAllMatters(userId: string): Promise<Matter[]> {
   try {
-    const matterCol = collection(db, MATTERS_COLLECTION);
-    const q = isInternalStaff
-      ? matterCol
-      : query(matterCol, where('teamMembers', 'array-contains', userId));
-
+    const q = query(collection(db, MATTERS_COLLECTION), where(`members.${userId}`, 'in', ['owner', 'editor', 'viewer']));
     const querySnapshot = await getDocs(q);
     const matters: Matter[] = [];
     querySnapshot.forEach((d) => matters.push({ id: d.id, ...(d.data() as Omit<Matter, 'id'>) }));
+    matters.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     localMattersStore = matters;
     return matters;
   } catch (err) {
@@ -104,7 +105,15 @@ export async function checkSuitNumberUnique(suitNumber: string, currentMatterId?
   return !existing;
 }
 
-export async function saveMatter(matterData: Omit<Matter, 'id' | 'createdAt' | 'updatedAt'>, currentUserId: string, currentUserName: string): Promise<Matter> {
+/**
+ * Creates a matter with the current user as its permanent owner. Anyone
+ * signed in may call this - there is no staff/role gate anymore.
+ */
+export async function saveMatter(
+  matterData: Omit<Matter, 'id' | 'createdAt' | 'updatedAt' | 'ownerId' | 'members'>,
+  currentUserId: string,
+  currentUserName: string
+): Promise<Matter> {
   const isUnique = await checkSuitNumberUnique(matterData.suitNumber);
   if (!isUnique) {
     throw new Error(`Suit Number "${matterData.suitNumber}" already exists in the system.`);
@@ -116,11 +125,13 @@ export async function saveMatter(matterData: Omit<Matter, 'id' | 'createdAt' | '
   const newMatter: Matter = {
     ...matterData,
     id: newId,
+    ownerId: currentUserId,
+    ownerName: currentUserName,
+    members: { [currentUserId]: 'owner' },
     createdBy: currentUserId,
     createdByName: currentUserName,
     createdAt: now,
     updatedAt: now,
-    teamMembers: Array.from(new Set([...matterData.teamMembers, currentUserId])),
   };
 
   await setDoc(doc(db, MATTERS_COLLECTION, newId), newMatter);
@@ -129,7 +140,7 @@ export async function saveMatter(matterData: Omit<Matter, 'id' | 'createdAt' | '
   await addTimelineEvent(newId, {
     date: matterData.filingDate,
     type: 'filing',
-    summary: `Matter instituted with Suit No. ${matterData.suitNumber}. Presiding Judge: ${matterData.judge || 'Unassigned'}.`,
+    summary: `Matter opened with Suit No. ${matterData.suitNumber}. Presiding Judge: ${matterData.judge || 'Unassigned'}.`,
     judge: matterData.judge,
     purpose: matterData.purpose || 'Filing',
     appearances: matterData.appearances,
@@ -193,7 +204,7 @@ export async function deleteMatterById(id: string): Promise<void> {
   localMattersStore = localMattersStore.filter((m) => m.id !== id);
 }
 
-// --- Team Membership ---
+// --- Matter Membership (owner/editor/viewer, scoped to one matter) ---
 
 export async function findUserByEmail(email: string): Promise<UserProfile | null> {
   const normalized = email.trim().toLowerCase();
@@ -203,28 +214,97 @@ export async function findUserByEmail(email: string): Promise<UserProfile | null
   return snap.docs[0].data() as UserProfile;
 }
 
-export async function fetchAllUsers(): Promise<UserProfile[]> {
-  const snap = await getDocs(collection(db, USERS_COLLECTION));
-  return snap.docs.map((d) => d.data() as UserProfile);
+/** Owner-only in practice - Firestore rules reject this unless the caller owns the matter. */
+export async function setMemberPermission(matterId: string, uid: string, permission: MatterPermission): Promise<void> {
+  const existing = await fetchMatterById(matterId);
+  if (!existing) throw new Error('Matter not found');
+  const members = { ...existing.members, [uid]: permission };
+  await updateDoc(doc(db, MATTERS_COLLECTION, matterId), { members, updatedAt: new Date().toISOString() });
 }
 
-export async function addTeamMemberToMatter(matterId: string, uid: string): Promise<void> {
-  await updateDoc(doc(db, MATTERS_COLLECTION, matterId), {
-    teamMembers: arrayUnion(uid),
-    updatedAt: new Date().toISOString(),
-  });
+/** Owner-only in practice - Firestore rules reject this unless the caller owns the matter. */
+export async function removeMember(matterId: string, uid: string): Promise<void> {
+  const existing = await fetchMatterById(matterId);
+  if (!existing) throw new Error('Matter not found');
+  const members = { ...existing.members };
+  delete members[uid];
+  await updateDoc(doc(db, MATTERS_COLLECTION, matterId), { members, updatedAt: new Date().toISOString() });
 }
 
-export async function removeTeamMemberFromMatter(matterId: string, uid: string): Promise<void> {
-  await updateDoc(doc(db, MATTERS_COLLECTION, matterId), {
-    teamMembers: arrayRemove(uid),
-    updatedAt: new Date().toISOString(),
-  });
+// --- Invites ---
+// An invite is a link, not just an email lookup: the recipient may not have
+// an account yet. Accepting the link signs them up (or signs them in) and
+// then adds them to the matter's members map with the invited permission.
+
+export async function createInvite(
+  matter: Matter,
+  email: string,
+  permission: Exclude<MatterPermission, 'owner'>,
+  invitedBy: string,
+  invitedByName: string
+): Promise<MatterInvite> {
+  const invite: MatterInvite = {
+    id: `invite_${Date.now()}`,
+    matterId: matter.id,
+    matterSuitNumber: matter.suitNumber,
+    matterTitle: matter.title,
+    email: email.trim().toLowerCase(),
+    invitedBy,
+    invitedByName,
+    status: 'pending',
+    permission,
+    token: genToken(),
+    createdAt: new Date().toISOString(),
+  };
+
+  const subCol = collection(db, MATTERS_COLLECTION, matter.id, 'invites');
+  await setDoc(doc(subCol, invite.id), invite);
+  return invite;
 }
 
-/** Admin-only in practice - Firestore rules reject this unless the caller is an admin. */
-export async function updateUserRole(uid: string, role: UserRole): Promise<void> {
-  await updateDoc(doc(db, USERS_COLLECTION, uid), { role });
+export async function fetchInvite(matterId: string, inviteId: string): Promise<MatterInvite | null> {
+  const snap = await getDoc(doc(db, MATTERS_COLLECTION, matterId, 'invites', inviteId));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as MatterInvite;
+}
+
+export async function fetchMatterInvites(matterId: string): Promise<MatterInvite[]> {
+  const snap = await getDocs(collection(db, MATTERS_COLLECTION, matterId, 'invites'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as MatterInvite));
+}
+
+export async function revokeInvite(matterId: string, inviteId: string): Promise<void> {
+  await deleteDoc(doc(db, MATTERS_COLLECTION, matterId, 'invites', inviteId));
+}
+
+/**
+ * Called once the invited user is signed in (having just signed up, or
+ * having an existing account). Validates the token, adds them to the
+ * matter's members map, marks the invite accepted, and redirects.
+ */
+export async function acceptInvite(
+  matterId: string,
+  inviteId: string,
+  token: string,
+  currentUserId: string
+): Promise<Matter> {
+  const invite = await fetchInvite(matterId, inviteId);
+  if (!invite) throw new Error('This invite link is no longer valid.');
+  if (invite.token !== token) throw new Error('This invite link is invalid.');
+  if (invite.status === 'accepted') {
+    const matter = await fetchMatterById(matterId);
+    if (!matter) throw new Error('Matter not found');
+    return matter;
+  }
+
+  const matter = await fetchMatterById(matterId);
+  if (!matter) throw new Error('Matter not found');
+
+  const members = { ...matter.members, [currentUserId]: invite.permission };
+  await updateDoc(doc(db, MATTERS_COLLECTION, matterId), { members, updatedAt: new Date().toISOString() });
+  await updateDoc(doc(db, MATTERS_COLLECTION, matterId, 'invites', inviteId), { status: 'accepted' });
+
+  return { ...matter, members };
 }
 
 // --- Timeline Service ---
@@ -348,7 +428,6 @@ export async function deleteMatterDocument(matterId: string, matterDoc: MatterDo
   try {
     await deleteObject(ref(storage, matterDoc.storagePath));
   } catch (err) {
-    // If the storage object is already gone, still remove the Firestore record.
     console.warn('Storage delete notice:', err);
   }
   await deleteDoc(doc(db, MATTERS_COLLECTION, matterId, 'documents', matterDoc.id));
@@ -412,14 +491,14 @@ export async function markNotificationAsRead(id: string): Promise<void> {
   if (idx !== -1) localNotificationsStore[idx].read = true;
 }
 
-/** Notifies every team member on a matter except `excludeUid` (usually the actor). */
+/** Notifies every member on a matter except `excludeUid` (usually the actor). */
 export async function notifyMatterTeam(
   matter: Matter,
   message: string,
   type: AppNotification['type'],
   excludeUid?: string
 ): Promise<void> {
-  const recipients = matter.teamMembers.filter((uid) => uid !== excludeUid);
+  const recipients = Object.keys(matter.members).filter((uid) => uid !== excludeUid);
   await Promise.all(
     recipients.map((uid) => {
       const notif: Omit<AppNotification, 'id'> = {
@@ -439,6 +518,9 @@ export async function notifyMatterTeam(
 }
 
 // --- Conflict of Interest Checker Service ---
+// Now scoped to whatever matter list is passed in (typically the current
+// user's own matters) rather than the whole firm's registry, since there is
+// no firm-wide view anymore.
 export function searchConflictOfInterest(queryStr: string, matters: Matter[]): {
   directPartyMatches: Matter[];
   plotMatches: Matter[];
@@ -461,9 +543,7 @@ export function searchConflictOfInterest(queryStr: string, matters: Matter[]): {
   );
 
   const counselMatches = matters.filter(
-    (m) =>
-      (m.leadLawyerName && m.leadLawyerName.toLowerCase().includes(term)) ||
-      (m.appearances && m.appearances.toLowerCase().includes(term))
+    (m) => m.appearances && m.appearances.toLowerCase().includes(term)
   );
 
   return { directPartyMatches, plotMatches, counselMatches };
