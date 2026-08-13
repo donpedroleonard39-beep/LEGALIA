@@ -151,6 +151,13 @@
 .badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 600; }
 .badge-green { background: rgba(61,128,98,.1); color: var(--verdict-green); border: 1px solid rgba(61,128,98,.22); }
 .badge-red { background: rgba(189,81,75,.1); color: var(--alert-red); border: 1px solid rgba(189,81,75,.22); }
+
+/* Toasts */
+.toast-card { padding: 16px; border-radius: 13px; box-shadow: var(--card-shadow); border: 1px solid; backdrop-filter: blur(10px); }
+.toast-success { background: rgba(61,128,98,.94); border-color: rgba(61,128,98,.4); color: #eafaf1; }
+.toast-error { background: rgba(189,81,75,.94); border-color: rgba(189,81,75,.4); color: #fdeeed; }
+.toast-warning { background: rgba(183,120,36,.94); border-color: rgba(183,120,36,.4); color: #fdf3e6; }
+.toast-info { background: var(--ink-raised); border-color: var(--border-subtle); color: var(--paper); }
 .timeline-feed { position: relative; }
 .timeline-item { position: relative; display: flex; gap: 18px; padding-bottom: 18px; }
 .timeline-item:last-child { padding-bottom: 0; }
