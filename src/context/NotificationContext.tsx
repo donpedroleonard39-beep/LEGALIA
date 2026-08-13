@@ -76,14 +76,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`pointer-events-auto p-4 rounded-xl shadow-xl border backdrop-blur-md transition-all duration-300 transform translate-y-0 ${
+            className={`pointer-events-auto transition-all duration-300 transform translate-y-0 toast-card ${
               toast.type === 'success'
-                ? 'bg-emerald-950/90 border-emerald-500/40 text-emerald-100'
+                ? 'toast-success'
                 : toast.type === 'error'
-                ? 'bg-rose-950/90 border-rose-500/40 text-rose-100'
+                ? 'toast-error'
                 : toast.type === 'warning'
-                ? 'bg-amber-950/90 border-amber-500/40 text-amber-100'
-                : 'bg-slate-900/90 border-slate-700 text-slate-100'
+                ? 'toast-warning'
+                : 'toast-info'
             }`}
           >
             <div className="font-bold text-sm tracking-wide">{toast.title}</div>
