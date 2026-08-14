@@ -43,10 +43,13 @@ service cloud.firestore {
 
     // ---------- Matters ----------
     match /matters/{matterId} {
-      // Only members (owner/editor/viewer) can read a matter. There is no
-      // firm-wide visibility anymore - every user only ever sees matters
-      // they were added to, starting with the ones they create.
-      allow read: if isMember(matterId);
+      // Only members (owner/editor/viewer) can read a matter. Checked
+      // directly against resource.data here (rather than via the isMember()
+      // helper, which performs a get() on the matter doc) because
+      // fetchAllMatters() runs a collection-wide query - Firestore only
+      // allows a list/query read when the rule can be evaluated from the
+      // queried document's own fields, not via a get() back on itself.
+      allow read: if isSignedIn() && request.auth.uid in resource.data.members;
 
       // Anyone signed in can create a matter, but only as themselves: they
       // must be the ownerId, and must appear in members as 'owner'. This is
@@ -85,23 +88,6 @@ service cloud.firestore {
         allow read: if isSignedIn();
         allow create, update, delete: if isOwner(matterId);
       }
-    }
-
-    // ---------- Suit number index ----------
-    // A thin, firm-wide-readable lookup so suit-number uniqueness can be
-    // checked and enforced without giving every user list/read access to
-    // the full matters collection (which "matters" rules intentionally
-    // restrict to members-only). Doc id is the encoded suit number.
-    match /suitNumberIndex/{indexId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() &&
-        request.resource.data.ownerId == request.auth.uid &&
-        !exists(/databases/$(database)/documents/suitNumberIndex/$(indexId));
-      // Only the matter's owner may repoint or remove the index entry
-      // (covers editing the suit number, or deleting the matter).
-      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid &&
-        request.resource.data.ownerId == request.auth.uid;
-      allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
     }
 
     // ---------- Reminders (private, per-user) ----------
