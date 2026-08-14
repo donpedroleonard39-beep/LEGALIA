@@ -87,6 +87,23 @@ service cloud.firestore {
       }
     }
 
+    // ---------- Suit number index ----------
+    // A thin, firm-wide-readable lookup so suit-number uniqueness can be
+    // checked and enforced without giving every user list/read access to
+    // the full matters collection (which "matters" rules intentionally
+    // restrict to members-only). Doc id is the encoded suit number.
+    match /suitNumberIndex/{indexId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+        request.resource.data.ownerId == request.auth.uid &&
+        !exists(/databases/$(database)/documents/suitNumberIndex/$(indexId));
+      // Only the matter's owner may repoint or remove the index entry
+      // (covers editing the suit number, or deleting the matter).
+      allow update: if isSignedIn() && resource.data.ownerId == request.auth.uid &&
+        request.resource.data.ownerId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
     // ---------- Reminders (private, per-user) ----------
     match /reminders/{reminderId} {
       allow read, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
