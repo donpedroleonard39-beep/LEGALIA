@@ -1,6 +1,6 @@
 import { 
   collection, doc, getDocs, getDoc, setDoc, 
-  updateDoc, deleteDoc, query, where, addDoc 
+  updateDoc, deleteDoc, query, where, addDoc, runTransaction 
 } from 'firebase/firestore';
 import { 
   ref, uploadBytesResumable, getDownloadURL, deleteObject 
@@ -14,6 +14,13 @@ import {
 const MATTERS_COLLECTION = 'matters';
 const REMINDERS_COLLECTION = 'reminders';
 const NOTIFICATIONS_COLLECTION = 'notifications';
+const SUIT_INDEX_COLLECTION = 'suitNumberIndex';
+
+// Suit numbers (e.g. "E/968/2022") contain slashes, which Firestore doc IDs
+// can't hold directly - encode them into the index doc id.
+function suitIndexId(suitNumber: string): string {
+  return encodeURIComponent(suitNumber.trim());
+}
 
 export async function fetchAllMatters(userId: string): Promise<Matter[]> {
   const q = query(
@@ -27,12 +34,10 @@ export async function fetchAllMatters(userId: string): Promise<Matter[]> {
 }
 
 export async function checkSuitNumberUnique(suitNumber: string, excludeId?: string): Promise<boolean> {
-  const q = query(
-    collection(db, MATTERS_COLLECTION),
-    where('suitNumber', '==', suitNumber.trim())
-  );
-  const snap = await getDocs(q);
-  return snap.docs.every((d) => d.id === excludeId);
+  if (!suitNumber.trim()) return true;
+  const snap = await getDoc(doc(db, SUIT_INDEX_COLLECTION, suitIndexId(suitNumber)));
+  if (!snap.exists()) return true;
+  return snap.data().matterId === excludeId;
 }
 
 export function searchConflictOfInterest(searchTerm: string, matters: Matter[]): {
@@ -70,7 +75,17 @@ export async function saveMatter(
     members: { [uid]: 'owner' }, createdBy: uid, 
     createdByName: name, createdAt: now, updatedAt: now 
   };
-  await setDoc(doc(db, MATTERS_COLLECTION, id), matter);
+  const indexRef = doc(db, SUIT_INDEX_COLLECTION, suitIndexId(matter.suitNumber));
+
+  await runTransaction(db, async (tx) => {
+    const existing = await tx.get(indexRef);
+    if (existing.exists()) {
+      throw new Error(`Suit number "${matter.suitNumber}" is already in use.`);
+    }
+    tx.set(doc(db, MATTERS_COLLECTION, id), matter);
+    tx.set(indexRef, { suitNumber: matter.suitNumber, matterId: id, ownerId: uid });
+  });
+
   if (matter.nextHearingDate) {
     await syncHearingReminders(matter, matter.nextHearingDate);
   }
@@ -79,10 +94,27 @@ export async function saveMatter(
 
 export async function updateMatterDetails(id: string, fields: Partial<Matter>): Promise<void> {
   const before = await fetchMatterById(id);
-  await updateDoc(doc(db, MATTERS_COLLECTION, id), { 
-    ...fields, 
-    updatedAt: new Date().toISOString() 
-  });
+  const suitNumberChanged = typeof fields.suitNumber === 'string' &&
+    fields.suitNumber.trim() !== before?.suitNumber;
+
+  if (suitNumberChanged && before) {
+    const newIndexRef = doc(db, SUIT_INDEX_COLLECTION, suitIndexId(fields.suitNumber as string));
+    const oldIndexRef = doc(db, SUIT_INDEX_COLLECTION, suitIndexId(before.suitNumber));
+    await runTransaction(db, async (tx) => {
+      const existing = await tx.get(newIndexRef);
+      if (existing.exists()) {
+        throw new Error(`Suit number "${fields.suitNumber}" is already in use.`);
+      }
+      tx.update(doc(db, MATTERS_COLLECTION, id), { ...fields, updatedAt: new Date().toISOString() });
+      tx.set(newIndexRef, { suitNumber: fields.suitNumber, matterId: id, ownerId: before.ownerId });
+      tx.delete(oldIndexRef);
+    });
+  } else {
+    await updateDoc(doc(db, MATTERS_COLLECTION, id), { 
+      ...fields, 
+      updatedAt: new Date().toISOString() 
+    });
+  }
   const hearingChanged = 'nextHearingDate' in fields && fields.nextHearingDate !== before?.nextHearingDate;
   if (hearingChanged) {
     const after = await fetchMatterById(id);
@@ -121,7 +153,17 @@ async function syncHearingReminders(matter: Matter, hearingDate: string): Promis
 }
 
 export async function deleteMatterById(id: string): Promise<void> {
+  const matter = await fetchMatterById(id);
   await deleteDoc(doc(db, MATTERS_COLLECTION, id));
+  if (matter) {
+    try {
+      await deleteDoc(doc(db, SUIT_INDEX_COLLECTION, suitIndexId(matter.suitNumber)));
+    } catch (err) {
+      // Non-fatal: the matter is already gone; a stray index entry only
+      // blocks re-use of that exact suit number, which is safe to leave for
+      // now if this fails (e.g. a permission edge case).
+    }
+  }
 }
 
 export async function generateInviteLink(
