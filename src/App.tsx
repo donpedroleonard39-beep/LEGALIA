@@ -102,14 +102,21 @@ function AppContent() {
 
   const loadMatters = async () => {
     if (!firebaseUser || !currentUser) return;
-    const list = await fetchAllMatters(firebaseUser.uid);
-    setMatters(list);
-    // Keep the open matter detail view in sync after an edit/membership
-    // change, instead of showing a stale snapshot until the user navigates away.
-    setSelectedMatter((prev) => {
-      if (!prev) return prev;
-      return list.find((m) => m.id === prev.id) || prev;
-    });
+    try {
+      const list = await fetchAllMatters(firebaseUser.uid);
+      setMatters(list);
+      // Keep the open matter detail view in sync after an edit/membership
+      // change, instead of showing a stale snapshot until the user navigates away.
+      setSelectedMatter((prev) => {
+        if (!prev) return prev;
+        return list.find((m) => m.id === prev.id) || prev;
+      });
+    } catch (error) {
+      // Previously this rejected silently and just left the register looking
+      // empty, with no clue that anything had gone wrong. Surface it.
+      console.error('loadMatters failed:', error);
+      showToast('Could not load your matters', error instanceof Error ? error.message : 'Please refresh and try again.', 'error');
+    }
   };
 
   const openNewMatterModal = () => {
