@@ -167,34 +167,33 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--bg-base)] text-[var(--text-main)] font-sans transition-colors duration-200">
+    <div className="min-h-screen bg-[var(--bg-base)] text-[var(--text-main)] font-sans transition-colors duration-200 lg:pl-[76px]">
 
-      {/* Top Navbar */}
-      <Navbar
+      {/* Desktop icon rail + mobile bottom tab bar */}
+      <Sidebar
         activeTab={activeTab}
         setActiveTab={(tab) => {
           setActiveTab(tab);
           setSelectedMatter(null);
         }}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
+        openNewMatterModal={openNewMatterModal}
         openDeadlineCalcModal={() => setIsDeadlineCalcOpen(true)}
       />
 
-      <div className="flex-1 flex flex-col lg:flex-row w-full max-w-[1600px] mx-auto pb-16 lg:pb-0">
-
-        {/* Sidebar: desktop icon rail + mobile bottom tab bar */}
-        <Sidebar
+      <div className="flex min-h-screen flex-col pb-16 lg:pb-0">
+        {/* Top bar: page title + search */}
+        <Navbar
           activeTab={activeTab}
           setActiveTab={(tab) => {
             setActiveTab(tab);
             setSelectedMatter(null);
           }}
-          openNewMatterModal={openNewMatterModal}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
         />
 
         {/* Main Content Area */}
-        <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
+        <main className="mx-auto w-full max-w-[1400px] flex-1 p-4 lg:p-8 overflow-y-auto">
 
           {selectedMatter ? (
             <MatterDetail
@@ -242,7 +241,6 @@ function AppContent() {
           )}
 
         </main>
-
       </div>
 
       {/* Modals */}
