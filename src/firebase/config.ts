@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfigJson from '../../firebase-applet-config.json';
 
@@ -21,7 +21,10 @@ export const googleProvider = new GoogleAuthProvider();
 // Use the project's default Firestore database. The applet config does not
 // expose a named database id, so passing one here only creates a type/runtime
 // mismatch during deployment.
-export const db = getFirestore(app);
+// ignoreUndefinedProperties: several forms (matter intake, edits) omit
+// optional fields as `undefined` rather than deleting the key - without this,
+// the SDK throws on any setDoc/updateDoc that includes one.
+export const db = initializeFirestore(app, { ignoreUndefinedProperties: true });
 
 export const storage = getStorage(app);
 
