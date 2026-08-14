@@ -62,6 +62,29 @@
 .menu-item:hover { background: var(--bg-surface-hover); }
 .empty-mini { padding: 20px 12px; color: var(--text-muted); font-size: 12px; text-align: center; }
 
+/* Desktop icon rail */
+.rail { position: fixed; top: 0; left: 0; z-index: 50; display: flex; height: 100vh; width: 76px; flex-direction: column; align-items: center; gap: 22px; border-right: 1px solid var(--border-subtle); background: var(--bg-surface); padding: 20px 0; }
+.rail-logo { display: flex; align-items: center; justify-content: center; }
+.rail-nav { display: flex; flex: 1; flex-direction: column; align-items: center; gap: 10px; overflow-y: auto; }
+.rail-bottom { display: flex; flex-direction: column; align-items: center; gap: 10px; padding-bottom: 4px; }
+.rail-item { position: relative; display: flex; height: 46px; width: 46px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 14px; color: var(--text-muted); transition: transform .15s ease, background .15s ease, color .15s ease, box-shadow .15s ease; }
+.rail-item svg { height: 20px; width: 20px; }
+.rail-item:hover { background: var(--bg-surface-hover); color: var(--text-main); transform: translateY(-1px); }
+.rail-item-active { background: var(--gold-soft); color: var(--gold); }
+.rail-item-active:hover { background: var(--gold-soft); color: var(--gold); }
+.rail-item-emphasis { border: 1px solid var(--gold); background: var(--gold); color: #151b28; box-shadow: 0 1px 0 rgba(255,255,255,.25) inset, 0 4px 11px rgba(162,125,73,.18); }
+.rail-item-emphasis:hover { background: var(--gold-bright); color: #151b28; }
+.rail-tooltip { position: absolute; left: 100%; z-index: 60; margin-left: 14px; white-space: nowrap; border-radius: 8px; background: var(--ink-raised); padding: 6px 11px; font-size: 11px; font-weight: 650; color: var(--paper); opacity: 0; pointer-events: none; box-shadow: 0 10px 24px rgba(10,17,29,.28); transition: opacity .15s ease; }
+.rail-item:hover .rail-tooltip { opacity: 1; }
+.rail-avatar { display: flex; height: 46px; width: 46px; align-items: center; justify-content: center; border-radius: 50%; border: 2px solid transparent; transition: .15s ease; }
+.rail-avatar:hover, .rail-avatar[aria-expanded="true"] { border-color: var(--gold); }
+
+/* Mobile bottom tab bar */
+.bottom-tab-bar { position: fixed; right: 0; bottom: 0; left: 0; z-index: 40; border-top: 1px solid var(--border-subtle); background: var(--bg-surface); backdrop-filter: blur(14px); box-shadow: 0 -4px 20px rgba(24,35,56,.06); }
+.bottom-tab-item { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; border-radius: 12px; color: var(--text-muted); font-size: 9px; font-weight: 650; letter-spacing: .01em; transition: color .15s ease; }
+.bottom-tab-item svg { height: 19px; width: 19px; }
+.bottom-tab-item.active { color: var(--gold); }
+
 /* Shared controls */
 .field-control { min-height: 40px; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--bg-base); padding: 9px 11px; color: var(--text-main); outline: none; transition: .15s ease; }
 .field-control::placeholder { color: var(--text-muted); opacity: .75; }
