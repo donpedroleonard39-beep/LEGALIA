@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Scale } from 'lucide-react';
+import { X, Scale, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 
@@ -16,6 +16,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, pendingIn
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -57,52 +58,58 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, pendingIn
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#12172B]/80 backdrop-blur-sm">
-      <div className="relative w-full max-w-md rounded-xl bg-[#F6F3EC] dark:bg-[#1B2140] border border-[rgba(184,147,95,0.3)] shadow-2xl p-6 text-[#12172B] dark:text-[#F6F3EC]">
-        
-        <div className="flex items-center justify-between pb-4 border-b border-[rgba(184,147,95,0.2)]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm" style={{ background: 'rgba(10,17,29,.78)' }}>
+      <div
+        className="relative w-full max-w-md rounded-[1.75rem] p-6"
+        style={{
+          background: 'var(--bg-surface)',
+          border: '1px solid rgba(208,173,114,.28)',
+          color: 'var(--text-main)',
+          boxShadow: '0 0 0 1px rgba(208,173,114,.06), 0 8px 16px rgba(10,17,29,.28), 0 32px 64px rgba(10,17,29,.36), 0 64px 96px rgba(10,17,29,.22), inset 0 1px 0 rgba(255,255,255,.05)',
+        }}
+      >
+        {/* Top gloss edge */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px rounded-t-[1.75rem]" style={{ background: 'linear-gradient(90deg, transparent, rgba(208,173,114,.35), transparent)' }} />
+        {/* Subtle gold top glow */}
+        <div className="pointer-events-none absolute inset-0 rounded-[1.75rem]" style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(208,173,114,.07) 0%, transparent 60%)' }} />
+
+        <div className="flex items-center justify-between pb-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center gap-3">
             <div className="icon-box-32">
-              <Scale className="w-4 h-4 text-[#B8935F]" />
+              <Scale className="w-4 h-4" style={{ color: 'var(--gold)' }} />
             </div>
-            <div className="font-serif font-semibold text-lg text-[#12172B] dark:text-[#F6F3EC]">
+            <div className="font-serif font-semibold text-lg" style={{ color: 'var(--text-main)' }}>
               LEGALIA Access
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-[#8A90AC] hover:text-[#12172B] dark:hover:text-[#F6F3EC] hover:bg-[#EDE8DC] dark:hover:bg-[#12172B] transition"
+            className="icon-button"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {pendingInvite && (
-          <div className="mt-4 rounded-lg border border-[rgba(184,147,95,0.35)] bg-[#B8935F]/10 px-3 py-2.5 text-[12px] leading-5 text-[#12172B] dark:text-[#F6F3EC]">
+          <div className="mt-4 rounded-lg px-3 py-2.5 text-[12px] leading-5" style={{ border: '1px solid rgba(208,173,114,.35)', background: 'var(--gold-soft)', color: 'var(--text-main)' }}>
             <strong>You have been invited</strong>{pendingInvite.matterSuitNumber ? ` to ${pendingInvite.matterSuitNumber}` : ''}{pendingInvite.matterTitle ? ` · ${pendingInvite.matterTitle}` : ''}. Sign in or create an account to accept access.
           </div>
         )}
 
         {/* Mode Switcher */}
-        <div className="mt-4 flex rounded-lg bg-[#EDE8DC] dark:bg-[#12172B] p-1 text-[13px] font-semibold">
+        <div className="mt-4 flex rounded-lg p-1 text-[13px] font-semibold" style={{ background: 'var(--bg-base)' }}>
           <button
             onClick={() => { setMode('signin'); setErrorMessage(''); }}
-            className={`flex-1 py-2 rounded-md transition ${
-              mode === 'signin'
-                ? 'bg-[#B8935F] text-[#12172B] shadow-xs'
-                : 'text-[#8A90AC]'
-            }`}
+            className="flex-1 py-2 rounded-md transition"
+            style={mode === 'signin' ? { background: 'var(--gold)', color: 'var(--ink-raised)' } : { color: 'var(--text-muted)' }}
           >
             Sign In
           </button>
 
           <button
             onClick={() => { setMode('signup'); setErrorMessage(''); }}
-            className={`flex-1 py-2 rounded-md transition ${
-              mode === 'signup'
-                ? 'bg-[#B8935F] text-[#12172B] shadow-xs'
-                : 'text-[#8A90AC]'
-            }`}
+            className="flex-1 py-2 rounded-md transition"
+            style={mode === 'signup' ? { background: 'var(--gold)', color: 'var(--ink-raised)' } : { color: 'var(--text-muted)' }}
           >
             Register Account
           </button>
@@ -111,7 +118,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, pendingIn
         {/* Google Sign in Button */}
         <button
           onClick={handleGoogle}
-          className="mt-4 w-full py-2.5 px-4 rounded-lg border border-[rgba(184,147,95,0.3)] bg-[#EDE8DC] dark:bg-[#12172B] hover:bg-[#E3DDD0] dark:hover:bg-[#12172B]/80 text-[#12172B] dark:text-[#F6F3EC] text-[13px] font-semibold flex items-center justify-center gap-2 transition"
+          className="mt-4 w-full py-2.5 px-4 rounded-lg text-[13px] font-semibold flex items-center justify-center gap-2 transition"
+          style={{ border: '1px solid var(--border-subtle)', background: 'var(--bg-base)', color: 'var(--text-main)' }}
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24">
             <path
@@ -134,12 +142,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, pendingIn
           Continue with Google
         </button>
 
-        <div className="relative my-4 text-center text-[11px] text-[#8A90AC] font-bold uppercase tracking-wider before:absolute before:inset-0 before:top-2 before:border-t before:border-[rgba(184,147,95,0.2)]">
-          <span className="relative bg-[#F6F3EC] dark:bg-[#1B2140] px-2">or Email Credentials</span>
+        <div className="relative my-4 text-center text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+          <div className="absolute inset-0 top-2 border-t" style={{ borderColor: 'var(--border-subtle)' }} />
+          <span className="relative px-2" style={{ background: 'var(--bg-surface)' }}>or Email Credentials</span>
         </div>
 
         {errorMessage && (
-          <div className="mb-3 p-2.5 rounded-lg bg-[#C1554A]/10 border border-[#C1554A]/30 text-[#C1554A] text-[12px]">
+          <div className="mb-3 p-2.5 rounded-lg text-[12px]" style={{ background: 'rgba(189,81,75,.1)', border: '1px solid rgba(189,81,75,.3)', color: 'var(--alert-red)' }}>
             {errorMessage}
           </div>
         )}
@@ -147,46 +156,54 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, pendingIn
         {/* Email Form */}
         <form onSubmit={handleSubmit} className="space-y-3 text-[13px]">
           {mode === 'signup' && (
-            <div>
-              <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Full Name</label>
+            <label className="block font-semibold mb-1" style={{ color: 'var(--text-main)' }}>Full Name
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Full name"
-                className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] text-[#12172B] dark:text-[#F6F3EC] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
+                className="field-control mt-1.5 w-full"
               />
-            </div>
+            </label>
           )}
 
-          <div>
-            <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Email Address</label>
+          <label className="block font-semibold mb-1" style={{ color: 'var(--text-main)' }}>Email Address
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="counsel@lawfirm.com"
-              className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] text-[#12172B] dark:text-[#F6F3EC] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
+              className="field-control mt-1.5 w-full"
             />
-          </div>
+          </label>
 
-          <div>
-            <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Password</label>
-            <input
-              type="password"
-              required
-              minLength={6}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] text-[#12172B] dark:text-[#F6F3EC] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
-            />
-          </div>
+          <label className="block font-semibold mb-1" style={{ color: 'var(--text-main)' }}>Password
+            <div className="relative mt-1.5">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                minLength={6}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="field-control w-full pr-11"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((value) => !value)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 transition"
+                style={{ color: 'var(--text-muted)' }}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </label>
 
           {mode === 'signup' && (
-            <p className="text-[11px] text-[#8A90AC] leading-relaxed">
+            <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
               New accounts begin with a private workspace. Open matters yourself or accept invitations; access is always limited to the matters you own or have been invited to.
             </p>
           )}
@@ -194,9 +211,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, pendingIn
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded-lg bg-[#B8935F] hover:bg-[#8C6F49] text-[#12172B] font-bold transition shadow-sm mt-2 disabled:opacity-50"
+            className="button-primary relative mt-2 w-full overflow-hidden group"
           >
-            {loading ? 'Processing...' : mode === 'signin' ? 'Sign In' : 'Create Account'}
+            <span
+              className="pointer-events-none absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700"
+              style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,.35), transparent)' }}
+            />
+            <span className="relative">{loading ? 'Processing…' : mode === 'signin' ? 'Sign In' : 'Create Account'}</span>
           </button>
         </form>
 
