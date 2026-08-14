@@ -6,7 +6,7 @@ import {
   FileCheck,
   ArrowRight,
   Database,
-  Search,
+  Bell,
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -25,46 +25,46 @@ export const LandingPage: React.FC<LandingPageProps> = ({ isAuthed, setActiveTab
   };
 
   return (
-    <div className="w-full min-h-screen bg-[#12172B] text-[#F6F3EC] flex flex-col justify-between overflow-x-hidden text-[13px]">
+    <div className="w-full min-h-screen flex flex-col justify-between overflow-x-hidden text-[13px]" style={{ background: 'var(--ink-raised)', color: 'var(--paper)' }}>
       
       {/* Hero Header */}
       <div className="relative pt-12 pb-20 px-6 max-w-6xl mx-auto text-center">
         
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-[#B8935F]/15 border border-[#B8935F]/30 text-[#B8935F] text-[13px] font-semibold mb-6">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg text-[13px] font-semibold mb-6" style={{ background: 'var(--gold-soft)', border: '1px solid rgba(208,173,114,.32)', color: 'var(--gold)' }}>
           <Gavel className="w-4 h-4" />
-          Modern Litigation & Cause List Infrastructure
+          Personal Litigation & Matter Tracking
         </div>
 
-        <h1 className="font-serif text-3xl sm:text-5xl font-semibold tracking-tight text-[#F6F3EC] max-w-3xl mx-auto leading-tight">
-          Precision Legal Proceedings & Court Cause List Management
+        <h1 className="font-serif text-3xl sm:text-5xl font-semibold tracking-tight max-w-3xl mx-auto leading-tight" style={{ color: 'var(--paper)' }}>
+          Keep every suit, hearing date, and note in one private record
         </h1>
 
-        <p className="mt-6 text-[#8A90AC] text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
-          Manage court suits, track presiding judge schedules, automate statutory deadlines, delegate team access, and search party conflict records in one high-security workspace connected to Cloud Firestore.
+        <p className="mt-6 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+          Whether you're the lawyer or the client, open a matter, track suit numbers, judges, and hearing dates, and invite the people who need visibility — with reminders sent automatically as dates approach.
         </p>
 
         {/* CTA Group */}
         <div className="mt-8 flex flex-wrap justify-center gap-4">
           <button
             onClick={enterPractice}
-            className="flex items-center gap-2 px-6 py-3 rounded-lg bg-[#B8935F] hover:bg-[#8C6F49] text-[#12172B] font-bold text-sm shadow-sm transition"
+            className="button-primary text-sm"
           >
-            {isAuthed ? 'Enter Practice Registry' : 'Sign In / Register Account'} <ArrowRight className="w-4 h-4" />
+            {isAuthed ? 'Open your matters' : 'Sign in / register'} <ArrowRight className="w-4 h-4" />
           </button>
         </div>
 
       </div>
 
       {/* Feature Grid Section */}
-      <div className="py-16 px-6 bg-[#12172B] border-t border-[rgba(184,147,95,0.2)]">
+      <div className="py-16 px-6" style={{ borderTop: '1px solid rgba(184,147,95,.2)' }}>
         <div className="max-w-6xl mx-auto">
           
           <div className="text-center mb-12">
-            <h2 className="font-serif text-2xl sm:text-3xl font-semibold text-[#F6F3EC]">
-              Built for High-Stakes Litigation Practice
+            <h2 className="font-serif text-2xl sm:text-3xl font-semibold" style={{ color: 'var(--paper)' }}>
+              Built for anyone with a matter to track
             </h2>
-            <p className="mt-2 text-[#8A90AC] text-sm">
-              Purpose-built for law firms, advocacy chambers, and corporate legal departments.
+            <p className="mt-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+              For lawyers, clients, and litigants alike — no firm account or admin required.
             </p>
           </div>
 
@@ -72,61 +72,61 @@ export const LandingPage: React.FC<LandingPageProps> = ({ isAuthed, setActiveTab
             
             <div className="legal-card p-6">
               <div className="icon-box-32 mb-4">
-                <Gavel className="w-4 h-4 text-[#B8935F]" />
+                <Gavel className="w-4 h-4" style={{ color: 'var(--gold)' }} />
               </div>
-              <h3 className="font-serif font-semibold text-base text-[#F6F3EC] mb-2">Court Cause List & Judge Tracking</h3>
-              <p className="text-[13px] text-[#8A90AC] leading-relaxed">
-                Log suit numbers, presiding judges, court divisions, plot descriptions, hearing dates, and appearances.
+              <h3 className="font-serif font-semibold text-base mb-2" style={{ color: 'var(--paper)' }}>Suit & Hearing Tracking</h3>
+              <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                Log suit numbers, presiding judges, court divisions, plot descriptions, hearing dates, and appearances in one place.
               </p>
             </div>
 
             <div className="legal-card p-6">
               <div className="icon-box-32 mb-4">
-                <Clock className="w-4 h-4 text-[#B8935F]" />
+                <Clock className="w-4 h-4" style={{ color: 'var(--gold)' }} />
               </div>
-              <h3 className="font-serif font-semibold text-base text-[#F6F3EC] mb-2">Statutory Deadline Calculator</h3>
-              <p className="text-[13px] text-[#8A90AC] leading-relaxed">
-                Automate compliance for Statement of Claim, Defense, Reply, and Pre-Trial Conference statutory windows.
+              <h3 className="font-serif font-semibold text-base mb-2" style={{ color: 'var(--paper)' }}>Statutory Deadline Calculator</h3>
+              <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                Estimate Statement of Claim, Defense, Reply, and Pre-Trial Conference windows under civil court rules.
               </p>
             </div>
 
             <div className="legal-card p-6">
               <div className="icon-box-32 mb-4">
-                <Search className="w-4 h-4 text-[#B8935F]" />
+                <Bell className="w-4 h-4" style={{ color: 'var(--gold)' }} />
               </div>
-              <h3 className="font-serif font-semibold text-base text-[#F6F3EC] mb-2">Conflict of Interest Checker</h3>
-              <p className="text-[13px] text-[#8A90AC] leading-relaxed">
-                Instantly scan party names, defendants, plot titles, and opposing counsel before accepting new briefs.
+              <h3 className="font-serif font-semibold text-base mb-2" style={{ color: 'var(--paper)' }}>Automatic Hearing Reminders</h3>
+              <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                Set a hearing date on a matter and everyone with access is reminded automatically as it approaches — no manual scheduling.
               </p>
             </div>
 
             <div className="legal-card p-6">
               <div className="icon-box-32 mb-4">
-                <Users className="w-4 h-4 text-[#B8935F]" />
+                <Users className="w-4 h-4" style={{ color: 'var(--gold)' }} />
               </div>
-              <h3 className="font-serif font-semibold text-base text-[#F6F3EC] mb-2">Granular Role & Team Access</h3>
-              <p className="text-[13px] text-[#8A90AC] leading-relaxed">
-                Restrict access on a per-matter basis using team membership security controls for partners, lawyers, and clients.
+              <h3 className="font-serif font-semibold text-base mb-2" style={{ color: 'var(--paper)' }}>Invite the People on the Matter</h3>
+              <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                Bring in your lawyer, your client, or a co-litigant with a link, and choose exactly what they can view or edit.
               </p>
             </div>
 
             <div className="legal-card p-6">
               <div className="icon-box-32 mb-4">
-                <FileCheck className="w-4 h-4 text-[#B8935F]" />
+                <FileCheck className="w-4 h-4" style={{ color: 'var(--gold)' }} />
               </div>
-              <h3 className="font-serif font-semibold text-base text-[#F6F3EC] mb-2">Document Vault & Versioning</h3>
-              <p className="text-[13px] text-[#8A90AC] leading-relaxed">
-                Store pleadings, motions, exhibits, and affidavits indexed by suit number with version tracking and full case bundle exports.
+              <h3 className="font-serif font-semibold text-base mb-2" style={{ color: 'var(--paper)' }}>Printable Case Briefs</h3>
+              <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                Generate a clean, court-ready printable brief from a matter's details whenever you need a physical copy.
               </p>
             </div>
 
             <div className="legal-card p-6">
               <div className="icon-box-32 mb-4">
-                <Database className="w-4 h-4 text-[#B8935F]" />
+                <Database className="w-4 h-4" style={{ color: 'var(--gold)' }} />
               </div>
-              <h3 className="font-serif font-semibold text-base text-[#F6F3EC] mb-2">Escaped CSV & Printable Bundles</h3>
-              <p className="text-[13px] text-[#8A90AC] leading-relaxed">
-                Export clean, formatted CSV registry data or generate court-ready printable case bundle briefs with timeline records.
+              <h3 className="font-serif font-semibold text-base mb-2" style={{ color: 'var(--paper)' }}>CSV Export</h3>
+              <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                Export your matters as clean, formatted CSV data whenever you need it outside the app.
               </p>
             </div>
 
@@ -136,8 +136,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ isAuthed, setActiveTab
       </div>
 
       {/* Footer */}
-      <footer className="py-8 px-6 border-t border-[rgba(184,147,95,0.2)] text-center text-[13px] text-[#8A90AC]">
-        LEGALIA Legal Proceedings Manager &bull; Enterprise Case Infrastructure &bull; Powered by Firebase Firestore & Auth
+      <footer className="py-8 px-6 text-center text-[13px]" style={{ borderTop: '1px solid rgba(184,147,95,.2)', color: 'var(--text-muted)' }}>
+        LEGALIA Personal Matter Tracker &bull; Built on Firebase
       </footer>
 
     </div>
