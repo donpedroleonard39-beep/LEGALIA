@@ -26,6 +26,18 @@ export async function fetchAllMatters(userId: string): Promise<Matter[]> {
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 }
 
+// Resolves a set of uids to their public profile (name/email) for display,
+// e.g. in the People tab where matter.members only stores uid -> permission.
+export async function fetchUserProfiles(uids: string[]): Promise<Record<string, { name: string; email: string }>> {
+  const unique = Array.from(new Set(uids));
+  const entries = await Promise.all(unique.map(async (uid) => {
+    const snap = await getDoc(doc(db, 'users', uid));
+    const data = snap.exists() ? (snap.data() as { name?: string; email?: string }) : null;
+    return [uid, { name: data?.name || 'Unnamed user', email: data?.email || '' }] as const;
+  }));
+  return Object.fromEntries(entries);
+}
+
 export async function fetchMatterById(id: string): Promise<Matter | null> {
   const snap = await getDoc(doc(db, MATTERS_COLLECTION, id));
   return snap.exists() ? { id: snap.id, ...snap.data() } as Matter : null;
@@ -121,13 +133,57 @@ export async function acceptInvite(
 ): Promise<Matter> {
   const invite = await fetchInvite(matterId, inviteId);
   if (!invite || invite.token !== token) throw new Error('Invalid invite');
+  if (invite.status === 'accepted') throw new Error('This invite has already been used.');
   const matter = await fetchMatterById(matterId);
   if (!matter) throw new Error('Matter not found');
   const members = { ...matter.members, [uid]: invite.permission };
   await updateDoc(doc(db, MATTERS_COLLECTION, matterId), { 
     members, updatedAt: new Date().toISOString() 
   });
+  await updateDoc(doc(collection(db, MATTERS_COLLECTION, matterId, 'invites'), inviteId), {
+    status: 'accepted',
+  });
   return { ...matter, members };
+}
+
+// Lists every invite (pending or accepted) on a matter, newest first, so
+// the owner can see who has been invited and whether they have joined yet.
+export async function fetchMatterInvites(matterId: string): Promise<MatterInvite[]> {
+  const snap = await getDocs(collection(db, MATTERS_COLLECTION, matterId, 'invites'));
+  return snap.docs
+    .map((d) => d.data() as MatterInvite)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+}
+
+// Deletes a still-pending invite so its link stops working. Accepted
+// invites are left alone - revoking access for someone who already joined
+// is a member-removal action (removeMember), not an invite action.
+export async function revokeInvite(matterId: string, inviteId: string): Promise<void> {
+  await deleteDoc(doc(db, MATTERS_COLLECTION, matterId, 'invites', inviteId));
+}
+
+// Owner-only: change an existing member's permission between editor and
+// viewer. The owner's own entry can never be changed through this path.
+export async function setMemberPermission(
+  matter: Matter, uid: string, permission: Exclude<MatterPermission, 'owner'>
+): Promise<void> {
+  if (uid === matter.ownerId) throw new Error('The owner\'s permission cannot be changed.');
+  await updateDoc(doc(db, MATTERS_COLLECTION, matter.id), {
+    [`members.${uid}`]: permission,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+// Owner-only: remove a member's access to the matter entirely. The owner
+// cannot remove themselves this way - deleting a matter (or transferring
+// ownership, not yet supported) is the correct path for that.
+export async function removeMember(matter: Matter, uid: string): Promise<void> {
+  if (uid === matter.ownerId) throw new Error('The owner cannot be removed from their own matter.');
+  const { [uid]: _removed, ...remainingMembers } = matter.members;
+  await updateDoc(doc(db, MATTERS_COLLECTION, matter.id), {
+    members: remainingMembers,
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 export async function addTimelineEvent(matterId: string, event: any): Promise<void> {
