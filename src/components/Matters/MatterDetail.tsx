@@ -211,12 +211,12 @@ function InfoField({ label, value, mono }: { label: string; value: string; mono?
   );
 }
 
-const EVENT_TYPE_META: Record<TimelineEventType, { label: string; icon: ReactNode }> = {
-  hearing: { label: 'Hearing', icon: <Gavel className="h-3.5 w-3.5" /> },
-  filing: { label: 'Filing', icon: <FileText className="h-3.5 w-3.5" /> },
-  ruling: { label: 'Ruling', icon: <Scale className="h-3.5 w-3.5" /> },
-  note: { label: 'Note', icon: <MessageSquare className="h-3.5 w-3.5" /> },
-  status_change: { label: 'Status change', icon: <RefreshCw className="h-3.5 w-3.5" /> },
+const EVENT_TYPE_META: Record<TimelineEventType, { label: string; icon: ReactNode; summaryPlaceholder: string }> = {
+  hearing: { label: 'Hearing', icon: <Gavel className="h-3.5 w-3.5" />, summaryPlaceholder: 'What happened at this hearing? e.g. matter called for mention, adjourned to...' },
+  filing: { label: 'Filing', icon: <FileText className="h-3.5 w-3.5" />, summaryPlaceholder: 'Describe the document filed, e.g. counter-affidavit filed in opposition to...' },
+  ruling: { label: 'Ruling', icon: <Scale className="h-3.5 w-3.5" />, summaryPlaceholder: 'What did the court decide or rule on?' },
+  note: { label: 'Note', icon: <MessageSquare className="h-3.5 w-3.5" />, summaryPlaceholder: 'Add a note about this matter...' },
+  status_change: { label: 'Status change', icon: <RefreshCw className="h-3.5 w-3.5" />, summaryPlaceholder: 'What changed, and why?' },
 };
 
 const emptyEventForm = { date: new Date().toISOString().slice(0, 10), type: 'hearing' as TimelineEventType, summary: '', judge: '', purpose: '', appearances: '' };
@@ -305,7 +305,7 @@ function TimelinePanel({ matter, canEdit, onRefresh }: { matter: Matter; canEdit
             </label>
           </div>
           <label className="block text-[11px] font-medium text-[var(--text-muted)]">Summary
-            <textarea required rows={2} value={form.summary} onChange={(e) => setForm((f) => ({ ...f, summary: e.target.value }))} placeholder="What happened at this stage of the matter?" className="field-control mt-1.5 w-full resize-none" />
+            <textarea required rows={2} value={form.summary} onChange={(e) => setForm((f) => ({ ...f, summary: e.target.value }))} placeholder={EVENT_TYPE_META[form.type]?.summaryPlaceholder} className="field-control mt-1.5 w-full resize-none" />
           </label>
           <div className="grid gap-3 sm:grid-cols-3">
             <label className="block text-[11px] font-medium text-[var(--text-muted)]">Judge
