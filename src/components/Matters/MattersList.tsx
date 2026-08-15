@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ArrowRight, Download, Filter, FolderOpen, Gavel, LayoutGrid, List, Plus, Search, SlidersHorizontal } from 'lucide-react';
 import { Matter, MatterStatus } from '../../types';
 import { exportMattersToCsv } from '../../utils/csvExport';
@@ -147,7 +147,8 @@ export function MattersList({ matters, onSelectMatter, openNewMatterModal, searc
   );
 }
 
-function MatterCard({ matter, onSelect }: { matter: Matter; onSelect: (matter: Matter) => void }) {
+interface MatterCardProps { matter: Matter; onSelect: (matter: Matter) => void }
+const MatterCard: React.FC<MatterCardProps> = ({ matter, onSelect }) => {
   return (
     <button onClick={() => onSelect(matter)} className="matter-card group text-left">
       <div className="flex items-start justify-between gap-3">
@@ -169,9 +170,10 @@ function MatterCard({ matter, onSelect }: { matter: Matter; onSelect: (matter: M
       </div>
     </button>
   );
-}
+};
 
-function MatterListRow({ matter, onSelect }: { matter: Matter; onSelect: (matter: Matter) => void }) {
+interface MatterListRowProps { matter: Matter; onSelect: (matter: Matter) => void }
+const MatterListRow: React.FC<MatterListRowProps> = ({ matter, onSelect }) => {
   return (
     <button onClick={() => onSelect(matter)} className="matter-list-row group w-full text-left">
       <div className="matter-row-mark"><Gavel className="h-4 w-4" /></div>
@@ -194,4 +196,4 @@ function MatterListRow({ matter, onSelect }: { matter: Matter; onSelect: (matter
       <ArrowRight className="h-4 w-4 shrink-0 text-[var(--text-muted)] transition group-hover:translate-x-1 group-hover:text-[var(--gold)]" />
     </button>
   );
-}
+};
