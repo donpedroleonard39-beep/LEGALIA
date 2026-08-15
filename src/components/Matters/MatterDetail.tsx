@@ -1,16 +1,18 @@
-import { useState, useMemo, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import { 
   ArrowLeft, Calendar, Clock, Download, FileText, 
   History, Info, MessageSquare, Plus, Printer, 
   Save, Settings, Share2, ShieldCheck, Trash2, 
-  UserPlus, Users, X, AlertCircle, CheckCircle2
+  UserPlus, Users, X, AlertCircle, CheckCircle2, Mail, Link2
 } from 'lucide-react';
-import { Matter, MatterDocument, TimelineEvent } from '../../types';
+import { Matter, MatterDocument, TimelineEvent, MatterInvite, MatterPermission } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { 
   updateMatterDetails, addTimelineEvent, uploadMatterDocument, 
-  deleteMatterDocument, deleteMatterById, generateInviteLink 
+  deleteMatterDocument, deleteMatterById, generateInviteLink,
+  fetchMatterInvites, revokeInvite, setMemberPermission, removeMember,
+  fetchUserProfiles
 } from '../../services/matterService';
 import { generatePrintableBrief } from '../../utils/caseBundleGenerator';
 import { DocketStamp } from '../common/DocketStamp';
@@ -240,13 +242,30 @@ function VaultPanel({ matter, canEdit, onRefresh }: { matter: Matter; canEdit: b
 function PeoplePanel({ matter, isOwner, onRefresh }: { matter: Matter; isOwner: boolean; onRefresh: () => void }) {
   const { showToast } = useNotifications();
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [invitePermission, setInvitePermission] = useState<Exclude<MatterPermission, 'owner'>>('editor');
+  const [invites, setInvites] = useState<MatterInvite[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, { name: string; email: string }>>({});
+  const [busyUid, setBusyUid] = useState<string | null>(null);
+  const [busyInviteId, setBusyInviteId] = useState<string | null>(null);
+
+  const memberUids = useMemo(() => Object.keys(matter.members), [matter.members]);
+
+  useEffect(() => {
+    fetchUserProfiles(memberUids).then(setProfiles).catch(() => {});
+    if (isOwner) {
+      fetchMatterInvites(matter.id).then(setInvites).catch(() => {});
+    }
+  }, [matter.id, memberUids, isOwner]);
+
+  const pendingInvites = invites.filter((invite) => invite.status === 'pending');
 
   const handleInvite = async () => {
     setInviteLoading(true);
     try {
-      const link = await generateInviteLink(matter.id, 'editor');
+      const link = await generateInviteLink(matter.id, invitePermission);
       await navigator.clipboard.writeText(link);
-      showToast('Link copied', 'Invite link copied to clipboard.', 'success');
+      showToast('Link copied', `Invite link (${invitePermission}) copied to clipboard.`, 'success');
+      if (isOwner) fetchMatterInvites(matter.id).then(setInvites).catch(() => {});
     } catch (err) {
       showToast('Error', 'Could not generate invite.', 'error');
     } finally {
@@ -254,33 +273,146 @@ function PeoplePanel({ matter, isOwner, onRefresh }: { matter: Matter; isOwner: 
     }
   };
 
+  const handlePermissionChange = async (uid: string, permission: Exclude<MatterPermission, 'owner'>) => {
+    setBusyUid(uid);
+    try {
+      await setMemberPermission(matter, uid, permission);
+      showToast('Access updated', 'Member permission changed.', 'success');
+      onRefresh();
+    } catch (err: any) {
+      showToast('Error', err?.message || 'Could not update permission.', 'error');
+    } finally {
+      setBusyUid(null);
+    }
+  };
+
+  const handleRemove = async (uid: string) => {
+    if (!window.confirm('Remove this person from the matter? They will lose all access.')) return;
+    setBusyUid(uid);
+    try {
+      await removeMember(matter, uid);
+      showToast('Member removed', 'Their access to this matter has been revoked.', 'success');
+      onRefresh();
+    } catch (err: any) {
+      showToast('Error', err?.message || 'Could not remove member.', 'error');
+    } finally {
+      setBusyUid(null);
+    }
+  };
+
+  const handleRevoke = async (inviteId: string) => {
+    setBusyInviteId(inviteId);
+    try {
+      await revokeInvite(matter.id, inviteId);
+      setInvites((current) => current.filter((invite) => invite.id !== inviteId));
+      showToast('Invite revoked', 'That invite link no longer works.', 'success');
+    } catch (err) {
+      showToast('Error', 'Could not revoke invite.', 'error');
+    } finally {
+      setBusyInviteId(null);
+    }
+  };
+
   return (
-    <div className="panel-card">
-      <div className="panel-heading">
-        <h2 className="section-title">Collaborators</h2>
-        {isOwner && (
-          <button onClick={handleInvite} disabled={inviteLoading} className="button-secondary text-[12px]">
-            <UserPlus className="h-3.5 w-3.5" /> Invite member
-          </button>
-        )}
-      </div>
-      <div className="divide-y divide-[var(--border-subtle)]">
-        {Object.entries(matter.members).map(([uid, role]) => (
-          <div key={uid} className="flex items-center justify-between py-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--gold-soft)] text-[var(--gold)] font-bold text-[12px]">
-                {role.charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <p className="text-[13px] font-medium text-[var(--text-main)]">
-                  {uid === matter.ownerId ? matter.ownerName : 'Member'}
-                </p>
-                <p className="text-[11px] text-[var(--text-muted)] capitalize">{role}</p>
-              </div>
+    <div className="space-y-4">
+      <div className="panel-card">
+        <div className="panel-heading">
+          <h2 className="section-title">Collaborators</h2>
+          {isOwner && (
+            <div className="flex items-center gap-2">
+              <select
+                value={invitePermission}
+                onChange={(event) => setInvitePermission(event.target.value as Exclude<MatterPermission, 'owner'>)}
+                className="field-control text-[12px] !py-1.5"
+                aria-label="Permission for new invite"
+              >
+                <option value="editor">Can edit</option>
+                <option value="viewer">Can view</option>
+              </select>
+              <button onClick={handleInvite} disabled={inviteLoading} className="button-secondary text-[12px]">
+                <UserPlus className="h-3.5 w-3.5" /> {inviteLoading ? 'Generating…' : 'Invite'}
+              </button>
             </div>
-          </div>
-        ))}
+          )}
+        </div>
+        <div className="divide-y divide-[var(--border-subtle)]">
+          {memberUids.map((uid) => {
+            const profile = profiles[uid];
+            const role = matter.members[uid];
+            const isSelf = uid === matter.ownerId;
+            return (
+              <div key={uid} className="flex items-center justify-between gap-3 py-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--gold-soft)] text-[var(--gold)] font-bold text-[12px]">
+                    {(isSelf ? matter.ownerName : profile?.name)?.charAt(0).toUpperCase() || '·'}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-medium text-[var(--text-main)]">
+                      {isSelf ? matter.ownerName || 'Owner' : profile?.name || 'Loading…'}
+                    </p>
+                    <p className="truncate text-[11px] text-[var(--text-muted)]">{profile?.email || ''}</p>
+                  </div>
+                </div>
+
+                {isOwner && !isSelf ? (
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <select
+                      value={role}
+                      disabled={busyUid === uid}
+                      onChange={(event) => handlePermissionChange(uid, event.target.value as Exclude<MatterPermission, 'owner'>)}
+                      className="field-control text-[11px] !py-1"
+                    >
+                      <option value="editor">Can edit</option>
+                      <option value="viewer">Can view</option>
+                    </select>
+                    <button
+                      onClick={() => handleRemove(uid)}
+                      disabled={busyUid === uid}
+                      className="icon-button danger"
+                      aria-label="Remove member"
+                      title="Remove member"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <p className="shrink-0 text-[11px] capitalize text-[var(--text-muted)]">{role}</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
+
+      {isOwner && pendingInvites.length > 0 && (
+        <div className="panel-card">
+          <div className="panel-heading">
+            <h2 className="section-title">Pending invites</h2>
+          </div>
+          <div className="divide-y divide-[var(--border-subtle)]">
+            {pendingInvites.map((invite) => (
+              <div key={invite.id} className="flex items-center justify-between gap-3 py-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--bg-base)] text-[var(--text-muted)]">
+                    <Mail className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-medium text-[var(--text-main)]">Unclaimed invite link</p>
+                    <p className="text-[11px] capitalize text-[var(--text-muted)]">{invite.permission} access · created {new Date(invite.createdAt).toLocaleDateString()}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleRevoke(invite.id)}
+                  disabled={busyInviteId === invite.id}
+                  className="button-secondary text-[11px]"
+                >
+                  <Link2 className="h-3.5 w-3.5" /> Revoke
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
