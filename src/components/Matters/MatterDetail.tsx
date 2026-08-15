@@ -228,11 +228,10 @@ function VaultPanel({ matter, canEdit, onRefresh }: { matter: Matter; canEdit: b
     <div className="panel-card">
       <div className="panel-heading">
         <h2 className="section-title">Document vault</h2>
-        {canEdit && <button className="button-secondary text-[12px]"><Plus className="h-3.5 w-3.5" /> Upload</button>}
       </div>
       <div className="py-8 text-center">
         <FileText className="mx-auto h-12 w-12 text-[var(--border-subtle)]" />
-        <p className="mt-4 text-[13px] text-[var(--text-muted)]">Vault storage is active. Upload papers to keep them with the matter.</p>
+        <p className="mt-4 text-[13px] text-[var(--text-muted)]">Document storage is coming soon.</p>
       </div>
     </div>
   );
