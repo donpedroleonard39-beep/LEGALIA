@@ -186,10 +186,24 @@ export async function removeMember(matter: Matter, uid: string): Promise<void> {
   });
 }
 
-export async function addTimelineEvent(matterId: string, event: any): Promise<void> {
-  await addDoc(collection(db, MATTERS_COLLECTION, matterId, 'timeline'), { 
-    ...event, createdAt: new Date().toISOString() 
+export async function fetchTimelineEvents(matterId: string): Promise<TimelineEvent[]> {
+  const snap = await getDocs(collection(db, MATTERS_COLLECTION, matterId, 'timeline'));
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() } as TimelineEvent))
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (a.createdAt < b.createdAt ? 1 : -1)));
+}
+
+export async function addTimelineEvent(
+  matterId: string,
+  event: Omit<TimelineEvent, 'id' | 'matterId' | 'createdAt'>
+): Promise<void> {
+  await addDoc(collection(db, MATTERS_COLLECTION, matterId, 'timeline'), {
+    ...event, matterId, createdAt: new Date().toISOString()
   });
+}
+
+export async function deleteTimelineEvent(matterId: string, eventId: string): Promise<void> {
+  await deleteDoc(doc(db, MATTERS_COLLECTION, matterId, 'timeline', eventId));
 }
 
 export async function uploadMatterDocument(matterId: string, file: File, meta: any): Promise<void> {
