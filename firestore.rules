@@ -86,7 +86,12 @@ service cloud.firestore {
       // what keeps invite links unguessable.
       match /invites/{inviteId} {
         allow read: if isSignedIn();
-        allow create, update, delete: if isOwner(matterId);
+        allow create, delete: if isOwner(matterId);
+        allow update: if isOwner(matterId) || (
+          isSignedIn() &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+          request.resource.data.status == 'accepted'
+        );
       }
     }
 
