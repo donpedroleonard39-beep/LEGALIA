@@ -196,10 +196,10 @@ export const SettingsPage: React.FC = () => {
             Cloud Firestore Connection
           </div>
           <p className="text-[13px] text-[#8A90AC]">
-            Connected to your practice's Cloud Firestore instance. Individual matters can be
-            deleted from that matter's detail page by the lead lawyer or a practice admin - there
-            is deliberately no single button here to bulk-delete the whole registry, since that
-            action can't be undone and would affect every user of this practice.
+            Connected to your Cloud Firestore instance. A matter can only be deleted by the
+            person who owns it, from that matter's detail page - there is deliberately no single
+            button here to bulk-delete the whole register, since that action can't be undone and
+            would affect everyone with access to that matter.
           </p>
         </div>
 
