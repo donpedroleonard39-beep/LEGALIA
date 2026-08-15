@@ -1,18 +1,19 @@
-import { useState, useMemo, useEffect, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, type ReactNode, type FormEvent } from 'react';
 import { 
   ArrowLeft, Calendar, Clock, Download, FileText, 
   History, Info, MessageSquare, Plus, Printer, 
   Save, Settings, Share2, ShieldCheck, Trash2, 
-  UserPlus, Users, X, AlertCircle, CheckCircle2, Mail, Link2
+  UserPlus, Users, X, AlertCircle, CheckCircle2, Mail, Link2,
+  Gavel, Scale, RefreshCw
 } from 'lucide-react';
-import { Matter, MatterDocument, TimelineEvent, MatterInvite, MatterPermission } from '../../types';
+import { Matter, MatterDocument, TimelineEvent, MatterInvite, MatterPermission, TimelineEventType } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { 
   updateMatterDetails, addTimelineEvent, uploadMatterDocument, 
   deleteMatterDocument, deleteMatterById, generateInviteLink,
   fetchMatterInvites, revokeInvite, setMemberPermission, removeMember,
-  fetchUserProfiles
+  fetchUserProfiles, fetchTimelineEvents, deleteTimelineEvent
 } from '../../services/matterService';
 import { generatePrintableBrief } from '../../utils/caseBundleGenerator';
 import { DocketStamp } from '../common/DocketStamp';
@@ -210,17 +211,158 @@ function InfoField({ label, value, mono }: { label: string; value: string; mono?
   );
 }
 
+const EVENT_TYPE_META: Record<TimelineEventType, { label: string; icon: ReactNode }> = {
+  hearing: { label: 'Hearing', icon: <Gavel className="h-3.5 w-3.5" /> },
+  filing: { label: 'Filing', icon: <FileText className="h-3.5 w-3.5" /> },
+  ruling: { label: 'Ruling', icon: <Scale className="h-3.5 w-3.5" /> },
+  note: { label: 'Note', icon: <MessageSquare className="h-3.5 w-3.5" /> },
+  status_change: { label: 'Status change', icon: <RefreshCw className="h-3.5 w-3.5" /> },
+};
+
+const emptyEventForm = { date: new Date().toISOString().slice(0, 10), type: 'hearing' as TimelineEventType, summary: '', judge: '', purpose: '', appearances: '' };
+
 function TimelinePanel({ matter, canEdit, onRefresh }: { matter: Matter; canEdit: boolean; onRefresh: () => void }) {
+  const { currentUser } = useAuth();
+  const { showToast } = useNotifications();
+  const [events, setEvents] = useState<TimelineEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [busyEventId, setBusyEventId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyEventForm);
+
+  const loadEvents = () => {
+    setLoading(true);
+    fetchTimelineEvents(matter.id)
+      .then(setEvents)
+      .catch(() => showToast('Error', 'Could not load timeline history.', 'error'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { loadEvents(); }, [matter.id]);
+
+  const handleAdd = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!form.summary.trim() || !currentUser) return;
+    setSaving(true);
+    try {
+      await addTimelineEvent(matter.id, {
+        date: form.date,
+        type: form.type,
+        summary: form.summary.trim(),
+        judge: form.judge.trim() || undefined,
+        purpose: form.purpose.trim() || undefined,
+        appearances: form.appearances.trim() || undefined,
+        createdBy: currentUser.uid,
+        createdByName: currentUser.name,
+      });
+      showToast('Event added', 'The procedural history has been updated.', 'success');
+      setForm(emptyEventForm);
+      setShowForm(false);
+      loadEvents();
+    } catch (err) {
+      showToast('Error', 'Could not add the event.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (eventId: string) => {
+    if (!window.confirm('Remove this entry from the timeline?')) return;
+    setBusyEventId(eventId);
+    try {
+      await deleteTimelineEvent(matter.id, eventId);
+      setEvents((current) => current.filter((item) => item.id !== eventId));
+      showToast('Entry removed', 'The timeline entry was deleted.', 'success');
+    } catch (err) {
+      showToast('Error', 'Could not remove the entry.', 'error');
+    } finally {
+      setBusyEventId(null);
+    }
+  };
+
   return (
     <div className="panel-card">
       <div className="panel-heading">
         <h2 className="section-title">Procedural history</h2>
-        {canEdit && <button className="button-secondary text-[12px]"><Plus className="h-3.5 w-3.5" /> Add event</button>}
+        {canEdit && (
+          <button onClick={() => setShowForm((value) => !value)} className="button-secondary text-[12px]">
+            <Plus className="h-3.5 w-3.5" /> {showForm ? 'Cancel' : 'Add event'}
+          </button>
+        )}
       </div>
-      <div className="py-8 text-center">
-        <History className="mx-auto h-12 w-12 text-[var(--border-subtle)]" />
-        <p className="mt-4 text-[13px] text-[var(--text-muted)]">Timeline history is coming soon.</p>
-      </div>
+
+      {showForm && (
+        <form onSubmit={handleAdd} className="mb-5 space-y-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)] p-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-[11px] font-medium text-[var(--text-muted)]">Date
+              <input type="date" required value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} className="field-control mt-1.5 w-full" />
+            </label>
+            <label className="block text-[11px] font-medium text-[var(--text-muted)]">Event type
+              <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as TimelineEventType }))} className="field-control mt-1.5 w-full">
+                {Object.entries(EVENT_TYPE_META).map(([value, meta]) => <option key={value} value={value}>{meta.label}</option>)}
+              </select>
+            </label>
+          </div>
+          <label className="block text-[11px] font-medium text-[var(--text-muted)]">Summary
+            <textarea required rows={2} value={form.summary} onChange={(e) => setForm((f) => ({ ...f, summary: e.target.value }))} placeholder="What happened at this stage of the matter?" className="field-control mt-1.5 w-full resize-none" />
+          </label>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label className="block text-[11px] font-medium text-[var(--text-muted)]">Judge
+              <input value={form.judge} onChange={(e) => setForm((f) => ({ ...f, judge: e.target.value }))} placeholder="Optional" className="field-control mt-1.5 w-full" />
+            </label>
+            <label className="block text-[11px] font-medium text-[var(--text-muted)]">Purpose
+              <input value={form.purpose} onChange={(e) => setForm((f) => ({ ...f, purpose: e.target.value }))} placeholder="e.g. Mention" className="field-control mt-1.5 w-full" />
+            </label>
+            <label className="block text-[11px] font-medium text-[var(--text-muted)]">Appearances
+              <input value={form.appearances} onChange={(e) => setForm((f) => ({ ...f, appearances: e.target.value }))} placeholder="Optional" className="field-control mt-1.5 w-full" />
+            </label>
+          </div>
+          <div className="flex justify-end">
+            <button type="submit" disabled={saving} className="button-primary text-[12px]">{saving ? 'Saving…' : 'Save entry'}</button>
+          </div>
+        </form>
+      )}
+
+      {loading ? (
+        <div className="py-8 text-center text-[13px] text-[var(--text-muted)]">Loading timeline…</div>
+      ) : events.length === 0 ? (
+        <div className="py-8 text-center">
+          <History className="mx-auto h-12 w-12 text-[var(--border-subtle)]" />
+          <p className="mt-4 text-[13px] text-[var(--text-muted)]">No procedural history recorded yet.</p>
+        </div>
+      ) : (
+        <ol className="space-y-0">
+          {events.map((item, index) => (
+            <li key={item.id} className="group relative flex gap-3 pb-5 pl-1">
+              {index < events.length - 1 && <span className="absolute left-[15px] top-7 bottom-0 w-px bg-[var(--border-subtle)]" />}
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--gold-soft)] text-[var(--gold)]">
+                {EVENT_TYPE_META[item.type]?.icon || <History className="h-3.5 w-3.5" />}
+              </span>
+              <div className="min-w-0 flex-1 pt-0.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--text-muted)]">
+                      {new Date(item.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })} · {EVENT_TYPE_META[item.type]?.label || item.type}
+                    </p>
+                    <p className="mt-1 text-[13px] leading-5 text-[var(--text-main)]">{item.summary}</p>
+                    {(item.judge || item.purpose || item.appearances) && (
+                      <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                        {[item.judge, item.purpose, item.appearances].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
+                  </div>
+                  {canEdit && (
+                    <button onClick={() => handleDelete(item.id)} disabled={busyEventId === item.id} className="icon-button danger shrink-0 opacity-0 transition group-hover:opacity-100" aria-label="Delete entry">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   );
 }
