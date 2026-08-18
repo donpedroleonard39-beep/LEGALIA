@@ -33,15 +33,30 @@ export function MatterFormModal({ isOpen, onClose, matterToEdit, onSaved }: Matt
     event.preventDefault();
     setErrorMessage('');
     if (!currentUser) { setErrorMessage('Please sign in before opening a matter.'); return; }
-    if (!form.suitNumber.trim() || !form.title.trim()) { setErrorMessage('Suit number and matter title are required.'); return; }
+
+    const plaintiffs = splitPeople(form.plaintiffs);
+    const defendants = splitPeople(form.defendants);
+
+    if (!form.suitNumber.trim() || !form.judge.trim() || plaintiffs.length === 0) {
+      setErrorMessage('Suit number, presiding judge, and at least one claimant/plaintiff are required.');
+      return;
+    }
+
+    // Everything else (title, court, defendants, dates...) can be filled in
+    // later - a suit number, judge, and plaintiff is enough to open a
+    // placeholder record you can flesh out as the matter develops.
+    // Title auto-generates from the parties when left blank, so the matter
+    // never shows up with an empty heading on cards or in the header.
+    const autoTitle = `${plaintiffs.join(' & ')} v. ${defendants.length ? defendants.join(' & ') : 'Respondent(s) TBD'}`;
+
     setSubmitting(true);
     try {
-      const base = { suitNumber: form.suitNumber.trim(), title: form.title.trim(), court: form.court.trim(), judge: form.judge.trim(), plot: form.plot.trim(), plaintiffs: splitPeople(form.plaintiffs), defendants: splitPeople(form.defendants), status: form.status, filingDate: form.filingDate, nextHearingDate: form.nextHearingDate || undefined, purpose: form.purpose.trim(), appearances: form.appearances.trim(), summaryNotes: form.summaryNotes.trim() };
+      const base = { suitNumber: form.suitNumber.trim(), title: form.title.trim() || autoTitle, court: form.court.trim(), judge: form.judge.trim(), plot: form.plot.trim(), plaintiffs, defendants, status: form.status, filingDate: form.filingDate, nextHearingDate: form.nextHearingDate || undefined, purpose: form.purpose.trim(), appearances: form.appearances.trim(), summaryNotes: form.summaryNotes.trim() };
       if (matterToEdit) {
         await updateMatterDetails(matterToEdit.id, base);
         showToast('Matter updated', `The record for ${base.suitNumber} is current.`, 'success');
       } else {
-        await saveMatter({ ...base, plaintiffs: base.plaintiffs.length ? base.plaintiffs : ['Claimant'], defendants: base.defendants.length ? base.defendants : ['Respondent'], createdBy: currentUser.uid, createdByName: currentUser.name }, currentUser.uid, currentUser.name);
+        await saveMatter({ ...base, createdBy: currentUser.uid, createdByName: currentUser.name }, currentUser.uid, currentUser.name);
         showToast('Matter opened', `${base.suitNumber} is now in your private register.`, 'success');
       }
       onSaved(); onClose();
@@ -54,8 +69,8 @@ export function MatterFormModal({ isOpen, onClose, matterToEdit, onSaved }: Matt
     <div className="modal-body"><p className="mb-5 max-w-2xl text-[12px] leading-5 text-[var(--text-muted)]">Capture only what you need at intake. You can add the full procedural history, documents, and collaborators from the matter workspace.</p>
       {errorMessage && <div className="alert-box"><AlertCircle className="h-4 w-4 shrink-0" /><span>{errorMessage}</span></div>}
       <form onSubmit={handleSubmit} className="space-y-5">
-        <FormSection icon={<FileText />} title="Identity & jurisdiction" description="The information that makes this record findable."><div className="grid gap-4 sm:grid-cols-[0.7fr_1.3fr]"><Field label="Suit number" required value={form.suitNumber} onChange={(value) => update('suitNumber', value)} placeholder="e.g. E/968/2022" mono /><Field label="Matter title / cause" required value={form.title} onChange={(value) => update('title', value)} placeholder="Claimant v. Respondent" /></div><div className="grid gap-4 sm:grid-cols-2"><Field label="Court & division" value={form.court} onChange={(value) => update('court', value)} placeholder="High Court · Civil Division" /><Field label="Presiding judge" value={form.judge} onChange={(value) => update('judge', value)} placeholder="Hon. Justice …" /></div><Field label="Plot / subject property" value={form.plot} onChange={(value) => update('plot', value)} placeholder="Optional property or subject reference" mono /></FormSection>
-        <FormSection icon={<Gavel />} title="Parties & ownership" description="Names are separated by commas. Matter access is private to the people you invite."><div className="grid gap-4 sm:grid-cols-2"><TextAreaField label="Claimant(s) / plaintiff(s)" value={form.plaintiffs} onChange={(value) => update('plaintiffs', value)} placeholder="Name 1, Name 2" /><TextAreaField label="Respondent(s) / defendant(s)" value={form.defendants} onChange={(value) => update('defendants', value)} placeholder="Name 1, Name 2" /></div><div className="grid gap-4 sm:grid-cols-2"><Field label="Lead counsel" value={form.leadLawyerName} onChange={(value) => update('leadLawyerName', value)} placeholder={currentUser?.name || 'Counsel'} /><Field label="Status" value={form.status} onChange={(value) => update('status', value as MatterStatus)} select options={['active', 'adjourned', 'won', 'lost', 'closed']} /></div></FormSection>
+        <FormSection icon={<FileText />} title="Identity & jurisdiction" description="Only the suit number is required here. Everything else can be filled in as the matter develops."><div className="grid gap-4 sm:grid-cols-[0.7fr_1.3fr]"><Field label="Suit number" required value={form.suitNumber} onChange={(value) => update('suitNumber', value)} placeholder="e.g. E/968/2022" mono /><Field label="Matter title / cause" value={form.title} onChange={(value) => update('title', value)} placeholder="Leave blank to auto-generate from parties below" /></div><div className="grid gap-4 sm:grid-cols-2"><Field label="Court & division" value={form.court} onChange={(value) => update('court', value)} placeholder="High Court · Civil Division" /><Field label="Presiding judge" required value={form.judge} onChange={(value) => update('judge', value)} placeholder="Hon. Justice …" /></div><Field label="Plot / subject property" value={form.plot} onChange={(value) => update('plot', value)} placeholder="Optional property or subject reference" mono /></FormSection>
+        <FormSection icon={<Gavel />} title="Parties & ownership" description="At least one claimant/plaintiff is required. Names are separated by commas. Matter access is private to the people you invite."><div className="grid gap-4 sm:grid-cols-2"><TextAreaField label="Claimant(s) / plaintiff(s) *" value={form.plaintiffs} onChange={(value) => update('plaintiffs', value)} placeholder="Name 1, Name 2" /><TextAreaField label="Respondent(s) / defendant(s)" value={form.defendants} onChange={(value) => update('defendants', value)} placeholder="Leave blank if not yet known, e.g. PERSONS UNKNOWN" /></div><div className="grid gap-4 sm:grid-cols-2"><Field label="Lead counsel" value={form.leadLawyerName} onChange={(value) => update('leadLawyerName', value)} placeholder={currentUser?.name || 'Counsel'} /><Field label="Status" value={form.status} onChange={(value) => update('status', value as MatterStatus)} select options={['active', 'adjourned', 'won', 'lost', 'closed']} /></div></FormSection>
         <FormSection icon={<CalendarDays />} title="Diary & context" description="Set the next moment that should bring this matter back to your attention."><div className="grid gap-4 sm:grid-cols-3"><Field label="Filing date" type="date" value={form.filingDate} onChange={(value) => update('filingDate', value)} /><Field label="Next hearing" type="date" value={form.nextHearingDate} onChange={(value) => update('nextHearingDate', value)} /><Field label="Purpose" value={form.purpose} onChange={(value) => update('purpose', value)} placeholder="Mention, PTC, Hearing…" /></div><Field label="Appearances record" value={form.appearances} onChange={(value) => update('appearances', value)} placeholder="Counsel appearing for each side" /><TextAreaField label="Summary notes" value={form.summaryNotes} onChange={(value) => update('summaryNotes', value)} placeholder="Background, relief sought, or the next strategic question…" rows={4} /></FormSection>
         <div className="modal-footer"><span className="mr-auto hidden text-[11px] text-[var(--text-muted)] sm:block">You can refine this record later.</span><button type="button" onClick={onClose} className="button-secondary">Cancel</button><button type="submit" disabled={submitting} className="button-primary">{submitting ? 'Saving…' : matterToEdit ? 'Save changes' : 'Open matter'} <ArrowRight className="h-4 w-4" /></button></div>
       </form>
