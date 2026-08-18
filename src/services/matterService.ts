@@ -1,6 +1,6 @@
 import { 
   collection, doc, getDocs, getDoc, setDoc, 
-  updateDoc, deleteDoc, query, where, addDoc 
+  updateDoc, deleteDoc, deleteField, query, where, addDoc 
 } from 'firebase/firestore';
 import { 
   ref, uploadBytesResumable, getDownloadURL, deleteObject 
@@ -64,17 +64,45 @@ export async function saveMatter(
 
 export async function updateMatterDetails(id: string, fields: Partial<Matter>): Promise<void> {
   const before = await fetchMatterById(id);
-  await updateDoc(doc(db, MATTERS_COLLECTION, id), { 
-    ...fields, 
-    updatedAt: new Date().toISOString() 
-  });
+
+  // The Firestore SDK throws if a field value is `undefined` - it does not
+  // silently drop it. Callers (e.g. logSittingAndScheduleNext) pass
+  // `undefined` on purpose to mean "clear this field", so translate that
+  // into Firestore's deleteField() sentinel here, in one place, rather
+  // than every caller having to know about deleteField().
+  const payload: Record<string, unknown> = { updatedAt: new Date().toISOString() };
+  for (const [key, value] of Object.entries(fields)) {
+    payload[key] = value === undefined ? deleteField() : value;
+  }
+
+  await updateDoc(doc(db, MATTERS_COLLECTION, id), payload);
+
   const hearingChanged = 'nextHearingDate' in fields && fields.nextHearingDate !== before?.nextHearingDate;
   if (hearingChanged) {
     const after = await fetchMatterById(id);
     if (after?.nextHearingDate) {
       await syncHearingReminders(after, after.nextHearingDate);
+    } else if (before?.nextHearingDate) {
+      // The next hearing date was cleared (e.g. judgment reserved / sine
+      // die adjournment) - cancel the now-stale reminder for the old date
+      // instead of leaving it to fire with an out-of-date hearing notice.
+      await cancelHearingReminders(id, before.nextHearingDate);
     }
   }
+}
+
+// Deletes the per-member reminder docs created by syncHearingReminders for
+// a specific (now superseded or cleared) hearing date. Reminder doc IDs are
+// deterministic (hr_{matterId}_{uid}_{hearingDate}), so this only needs the
+// matter's member list, not a query.
+async function cancelHearingReminders(matterId: string, hearingDate: string): Promise<void> {
+  const matter = await fetchMatterById(matterId);
+  if (!matter) return;
+  const memberIds = Object.keys(matter.members);
+  await Promise.all(memberIds.map(async (uid) => {
+    const reminderId = `hr_${matterId}_${uid}_${hearingDate}`;
+    await deleteDoc(doc(db, REMINDERS_COLLECTION, reminderId)).catch(() => {});
+  }));
 }
 
 // Creates (or refreshes) a hearing reminder for every member of a matter,
@@ -199,6 +227,38 @@ export async function addTimelineEvent(
 ): Promise<void> {
   await addDoc(collection(db, MATTERS_COLLECTION, matterId, 'timeline'), {
     ...event, matterId, createdAt: new Date().toISOString()
+  });
+}
+
+// Records what happened at a court sitting and, in the same action, rolls
+// the matter's "next appearance" forward (or clears it) to match. This is
+// the single entry point for "log today's sitting" - it keeps the timeline
+// entry, the matter's nextHearingDate/purpose, and hearing reminders from
+// ever drifting out of sync with each other, which used to require two
+// separate edits (add timeline event, then separately edit the matter).
+//
+// If nextHearingDate is omitted/empty, the matter's next appearance is
+// cleared (e.g. judgment reserved, case adjourned sine die) - the sitting
+// just logged is still preserved permanently in the timeline either way.
+export async function logSittingAndScheduleNext(
+  matter: Matter,
+  sitting: Omit<TimelineEvent, 'id' | 'matterId' | 'createdAt'>,
+  next: { nextHearingDate?: string; purpose?: string }
+): Promise<void> {
+  await addTimelineEvent(matter.id, sitting);
+
+  const nextHearingDate = next.nextHearingDate || undefined;
+  const purpose = nextHearingDate ? (next.purpose || undefined) : undefined;
+
+  // updateMatterDetails() treats an `undefined` value as "clear this
+  // field" (see deleteField() there), so omitting a next date here
+  // correctly wipes the matter's stale next-hearing info rather than
+  // leaving it pointing at a date that has already passed.
+  await updateMatterDetails(matter.id, {
+    nextHearingDate,
+    purpose,
+    appearances: sitting.appearances,
+    judge: sitting.judge || matter.judge,
   });
 }
 
