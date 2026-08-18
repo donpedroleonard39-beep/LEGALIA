@@ -97,7 +97,7 @@ service cloud.firestore {
 
     // ---------- Reminders (private, per-user) ----------
     match /reminders/{reminderId} {
-      allow read, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
 
       // A reminder can be created or refreshed for yourself, or for any
       // fellow member of a matter you also belong to (covers automatic
@@ -106,6 +106,19 @@ service cloud.firestore {
         request.resource.data.userId == request.auth.uid ||
         (request.resource.data.matterId is string &&
          isMember(request.resource.data.matterId))
+      );
+
+      // Symmetric with create/update above: a reminder can be cancelled by
+      // its own owner, or by any fellow member of the matter it belongs to.
+      // This is required for automatic hearing-date reminders - they are
+      // fanned out to every member when a hearing date is set, and must be
+      // equally cancellable for every member when an editor clears or
+      // changes that date (e.g. logging a sitting with no next date), not
+      // just by the reminder's own owner.
+      allow delete: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        (resource.data.matterId is string &&
+         isMember(resource.data.matterId))
       );
     }
 
