@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, type ReactNode, type FormEvent } from 'react';
 import { 
   ArrowLeft, Calendar, Clock, Download, FileText, 
-  History, Info, MessageSquare, Plus, Printer, 
+  History, Info, MessageSquare, Pencil, Plus, Printer, 
   Save, Settings, Share2, ShieldCheck, Trash2, 
   UserPlus, Users, X, AlertCircle, CheckCircle2, Mail, Link2,
   Gavel, Scale, RefreshCw
@@ -10,10 +10,11 @@ import { Matter, MatterDocument, TimelineEvent, MatterInvite, MatterPermission, 
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { 
-  updateMatterDetails, addTimelineEvent, uploadMatterDocument, 
+  uploadMatterDocument, 
   deleteMatterDocument, deleteMatterById, generateInviteLink,
   fetchMatterInvites, revokeInvite, setMemberPermission, removeMember,
-  fetchUserProfiles, fetchTimelineEvents, deleteTimelineEvent
+  fetchUserProfiles, fetchTimelineEvents, deleteTimelineEvent,
+  logSittingAndScheduleNext
 } from '../../services/matterService';
 import { generatePrintableBrief } from '../../utils/caseBundleGenerator';
 import { DocketStamp } from '../common/DocketStamp';
@@ -27,7 +28,7 @@ interface MatterDetailProps {
 
 type TabType = 'overview' | 'timeline' | 'vault' | 'people' | 'alerts';
 
-export function MatterDetail({ matter, onBack, onRefresh }: MatterDetailProps) {
+export function MatterDetail({ matter, onBack, onRefresh, onEdit }: MatterDetailProps) {
   const { currentUser } = useAuth();
   const { showToast } = useNotifications();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
@@ -81,6 +82,11 @@ export function MatterDetail({ matter, onBack, onRefresh }: MatterDetailProps) {
           </div>
           
           <div className="flex flex-wrap gap-2">
+            {canEdit && onEdit && (
+              <button onClick={() => onEdit(matter)} className="button-secondary">
+                <Pencil className="h-4 w-4" /> Edit record
+              </button>
+            )}
             <button onClick={() => generatePrintableBrief(matter)} className="button-secondary">
               <Printer className="h-4 w-4" /> Print brief
             </button>
@@ -219,7 +225,16 @@ const EVENT_TYPE_META: Record<TimelineEventType, { label: string; icon: ReactNod
   status_change: { label: 'Status change', icon: <RefreshCw className="h-3.5 w-3.5" />, summaryPlaceholder: 'What changed, and why?' },
 };
 
-const emptyEventForm = { date: new Date().toISOString().slice(0, 10), type: 'hearing' as TimelineEventType, summary: '', judge: '', purpose: '', appearances: '' };
+const emptyEventForm = {
+  date: new Date().toISOString().slice(0, 10),
+  type: 'hearing' as TimelineEventType,
+  summary: '',
+  judge: '',
+  purpose: '',
+  appearances: '',
+  nextHearingDate: '',
+  nextPurpose: '',
+};
 
 function TimelinePanel({ matter, canEdit, onRefresh }: { matter: Matter; canEdit: boolean; onRefresh: () => void }) {
   const { currentUser } = useAuth();
@@ -229,7 +244,7 @@ function TimelinePanel({ matter, canEdit, onRefresh }: { matter: Matter; canEdit
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [busyEventId, setBusyEventId] = useState<string | null>(null);
-  const [form, setForm] = useState(emptyEventForm);
+  const [form, setForm] = useState({ ...emptyEventForm, judge: matter.judge || '' });
 
   const loadEvents = () => {
     setLoading(true);
@@ -241,27 +256,45 @@ function TimelinePanel({ matter, canEdit, onRefresh }: { matter: Matter; canEdit
 
   useEffect(() => { loadEvents(); }, [matter.id]);
 
+  // Single action for "log today's sitting": files the timeline entry AND
+  // rolls the matter's next-appearance date/purpose forward in one go, so
+  // the Brief tab, matter cards, and hearing reminders all update together
+  // instead of needing a separate trip to "Edit record" afterwards.
   const handleAdd = async (event: FormEvent) => {
     event.preventDefault();
     if (!form.summary.trim() || !currentUser) return;
     setSaving(true);
     try {
-      await addTimelineEvent(matter.id, {
-        date: form.date,
-        type: form.type,
-        summary: form.summary.trim(),
-        judge: form.judge.trim() || undefined,
-        purpose: form.purpose.trim() || undefined,
-        appearances: form.appearances.trim() || undefined,
-        createdBy: currentUser.uid,
-        createdByName: currentUser.name,
-      });
-      showToast('Event added', 'The procedural history has been updated.', 'success');
-      setForm(emptyEventForm);
+      await logSittingAndScheduleNext(
+        matter,
+        {
+          date: form.date,
+          type: form.type,
+          summary: form.summary.trim(),
+          judge: form.judge.trim() || undefined,
+          purpose: form.purpose.trim() || undefined,
+          appearances: form.appearances.trim() || undefined,
+          createdBy: currentUser.uid,
+          createdByName: currentUser.name,
+        },
+        {
+          nextHearingDate: form.nextHearingDate || undefined,
+          purpose: form.nextPurpose.trim() || undefined,
+        }
+      );
+      showToast(
+        'Sitting logged',
+        form.nextHearingDate
+          ? `Recorded, and the next appearance is now ${new Date(form.nextHearingDate).toLocaleDateString(undefined, { dateStyle: 'medium' })}.`
+          : 'Recorded. No next appearance is scheduled.',
+        'success'
+      );
+      setForm({ ...emptyEventForm, judge: matter.judge || '' });
       setShowForm(false);
       loadEvents();
+      onRefresh();
     } catch (err) {
-      showToast('Error', 'Could not add the event.', 'error');
+      showToast('Error', 'Could not log the sitting.', 'error');
     } finally {
       setSaving(false);
     }
@@ -287,39 +320,56 @@ function TimelinePanel({ matter, canEdit, onRefresh }: { matter: Matter; canEdit
         <h2 className="section-title">Procedural history</h2>
         {canEdit && (
           <button onClick={() => setShowForm((value) => !value)} className="button-secondary text-[12px]">
-            <Plus className="h-3.5 w-3.5" /> {showForm ? 'Cancel' : 'Add event'}
+            <Plus className="h-3.5 w-3.5" /> {showForm ? 'Cancel' : 'Log a sitting'}
           </button>
         )}
       </div>
 
       {showForm && (
-        <form onSubmit={handleAdd} className="mb-5 space-y-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)] p-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block text-[11px] font-medium text-[var(--text-muted)]">Date
-              <input type="date" required value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} className="field-control mt-1.5 w-full" />
+        <form onSubmit={handleAdd} className="mb-5 space-y-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)] p-4">
+          <div>
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">What happened today</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block text-[11px] font-medium text-[var(--text-muted)]">Date
+                <input type="date" required value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} className="field-control mt-1.5 w-full" />
+              </label>
+              <label className="block text-[11px] font-medium text-[var(--text-muted)]">Event type
+                <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as TimelineEventType }))} className="field-control mt-1.5 w-full">
+                  {Object.entries(EVENT_TYPE_META).map(([value, meta]) => <option key={value} value={value}>{meta.label}</option>)}
+                </select>
+              </label>
+            </div>
+            <label className="mt-3 block text-[11px] font-medium text-[var(--text-muted)]">Summary
+              <textarea required rows={2} value={form.summary} onChange={(e) => setForm((f) => ({ ...f, summary: e.target.value }))} placeholder={EVENT_TYPE_META[form.type]?.summaryPlaceholder} className="field-control mt-1.5 w-full resize-none" />
             </label>
-            <label className="block text-[11px] font-medium text-[var(--text-muted)]">Event type
-              <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as TimelineEventType }))} className="field-control mt-1.5 w-full">
-                {Object.entries(EVENT_TYPE_META).map(([value, meta]) => <option key={value} value={value}>{meta.label}</option>)}
-              </select>
-            </label>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <label className="block text-[11px] font-medium text-[var(--text-muted)]">Judge
+                <input value={form.judge} onChange={(e) => setForm((f) => ({ ...f, judge: e.target.value }))} placeholder="Optional" className="field-control mt-1.5 w-full" />
+              </label>
+              <label className="block text-[11px] font-medium text-[var(--text-muted)]">Purpose
+                <input value={form.purpose} onChange={(e) => setForm((f) => ({ ...f, purpose: e.target.value }))} placeholder="e.g. Mention" className="field-control mt-1.5 w-full" />
+              </label>
+              <label className="block text-[11px] font-medium text-[var(--text-muted)]">Appearances
+                <input value={form.appearances} onChange={(e) => setForm((f) => ({ ...f, appearances: e.target.value }))} placeholder="Optional" className="field-control mt-1.5 w-full" />
+              </label>
+            </div>
           </div>
-          <label className="block text-[11px] font-medium text-[var(--text-muted)]">Summary
-            <textarea required rows={2} value={form.summary} onChange={(e) => setForm((f) => ({ ...f, summary: e.target.value }))} placeholder={EVENT_TYPE_META[form.type]?.summaryPlaceholder} className="field-control mt-1.5 w-full resize-none" />
-          </label>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <label className="block text-[11px] font-medium text-[var(--text-muted)]">Judge
-              <input value={form.judge} onChange={(e) => setForm((f) => ({ ...f, judge: e.target.value }))} placeholder="Optional" className="field-control mt-1.5 w-full" />
-            </label>
-            <label className="block text-[11px] font-medium text-[var(--text-muted)]">Purpose
-              <input value={form.purpose} onChange={(e) => setForm((f) => ({ ...f, purpose: e.target.value }))} placeholder="e.g. Mention" className="field-control mt-1.5 w-full" />
-            </label>
-            <label className="block text-[11px] font-medium text-[var(--text-muted)]">Appearances
-              <input value={form.appearances} onChange={(e) => setForm((f) => ({ ...f, appearances: e.target.value }))} placeholder="Optional" className="field-control mt-1.5 w-full" />
-            </label>
+
+          <div className="border-t border-[var(--border-subtle)] pt-4">
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Next appearance</p>
+            <p className="mb-3 text-[11px] text-[var(--text-muted)]">Leave the date blank if none was given (e.g. judgment reserved, adjourned sine die) — the matter's next-appearance field will be cleared and no reminder will be set.</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block text-[11px] font-medium text-[var(--text-muted)]">Next hearing date
+                <input type="date" value={form.nextHearingDate} onChange={(e) => setForm((f) => ({ ...f, nextHearingDate: e.target.value }))} className="field-control mt-1.5 w-full" />
+              </label>
+              <label className="block text-[11px] font-medium text-[var(--text-muted)]">Purpose of next date
+                <input value={form.nextPurpose} onChange={(e) => setForm((f) => ({ ...f, nextPurpose: e.target.value }))} placeholder="e.g. Continuation of hearing" disabled={!form.nextHearingDate} className="field-control mt-1.5 w-full disabled:opacity-50" />
+              </label>
+            </div>
           </div>
+
           <div className="flex justify-end">
-            <button type="submit" disabled={saving} className="button-primary text-[12px]">{saving ? 'Saving…' : 'Save entry'}</button>
+            <button type="submit" disabled={saving} className="button-primary text-[12px]">{saving ? 'Saving…' : 'Save & update matter'}</button>
           </div>
         </form>
       )}
