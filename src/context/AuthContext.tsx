@@ -5,6 +5,7 @@ import {
   signOut as firebaseSignOut,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   User as FirebaseUser,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -18,11 +19,50 @@ interface AuthContextType {
   loginWithGoogle: () => Promise<FirebaseUser | null>;
   loginWithEmail: (e: string, p: string) => Promise<FirebaseUser | null>;
   signUpWithEmail: (e: string, p: string, name: string) => Promise<FirebaseUser | null>;
+  resetPassword: (e: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUserProfile: (fields: Partial<UserProfile>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Firebase throws errors like "Firebase: Error (auth/wrong-password)." which
+// are useless to show a person. Map the codes we actually hit to plain,
+// specific copy. Anything not in this list falls back to a generic message
+// instead of leaking the raw Firebase text.
+function friendlyAuthMessage(err: any): string {
+  const code: string = err?.code || '';
+
+  switch (code) {
+    case 'auth/invalid-email':
+      return 'That email address does not look right. Please check it and try again.';
+    case 'auth/user-not-found':
+    case 'auth/invalid-credential':
+    case 'auth/invalid-login-credentials':
+      return 'We could not find an account matching that email and password.';
+    case 'auth/wrong-password':
+      return 'That password is incorrect. Please try again or reset your password.';
+    case 'auth/too-many-requests':
+      return 'Too many attempts. Please wait a moment before trying again.';
+    case 'auth/user-disabled':
+      return 'This account has been disabled. Please contact your administrator.';
+    case 'auth/email-already-in-use':
+      return 'An account already exists with that email. Try signing in instead.';
+    case 'auth/weak-password':
+      return 'Please choose a password with at least 6 characters.';
+    case 'auth/missing-password':
+      return 'Please enter a password.';
+    case 'auth/network-request-failed':
+      return 'Network error. Please check your connection and try again.';
+    case 'auth/popup-closed-by-user':
+    case 'auth/cancelled-popup-request':
+      return 'Google sign in was closed before it finished. Please try again.';
+    case 'auth/popup-blocked':
+      return 'Your browser blocked the Google sign in popup. Please allow popups and try again.';
+    default:
+      return 'Something went wrong. Please try again.';
+  }
+}
 
 // There is no global role anymore - every signed-in user gets the same
 // baseline profile. Access to any given matter is entirely determined by
@@ -79,33 +119,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const loginWithGoogle = async () => {
-    const res = await signInWithPopup(auth, googleProvider);
-    if (res.user) {
-      const profile = await ensureUserProfile(res.user);
-      setCurrentUser(profile);
-      return res.user;
+    try {
+      const res = await signInWithPopup(auth, googleProvider);
+      if (res.user) {
+        const profile = await ensureUserProfile(res.user);
+        setCurrentUser(profile);
+        return res.user;
+      }
+      return null;
+    } catch (err: any) {
+      throw new Error(friendlyAuthMessage(err));
     }
-    return null;
   };
 
   const loginWithEmail = async (e: string, p: string) => {
-    const res = await signInWithEmailAndPassword(auth, e, p);
-    if (res.user) {
-      const profile = await ensureUserProfile(res.user);
-      setCurrentUser(profile);
-      return res.user;
+    try {
+      const res = await signInWithEmailAndPassword(auth, e, p);
+      if (res.user) {
+        const profile = await ensureUserProfile(res.user);
+        setCurrentUser(profile);
+        return res.user;
+      }
+      return null;
+    } catch (err: any) {
+      throw new Error(friendlyAuthMessage(err));
     }
-    return null;
   };
 
   const signUpWithEmail = async (e: string, p: string, name: string) => {
-    const res = await createUserWithEmailAndPassword(auth, e, p);
-    if (res.user) {
-      const profile = await ensureUserProfile(res.user, name);
-      setCurrentUser(profile);
-      return res.user;
+    try {
+      const res = await createUserWithEmailAndPassword(auth, e, p);
+      if (res.user) {
+        const profile = await ensureUserProfile(res.user, name);
+        setCurrentUser(profile);
+        return res.user;
+      }
+      return null;
+    } catch (err: any) {
+      throw new Error(friendlyAuthMessage(err));
     }
-    return null;
+  };
+
+  const resetPassword = async (e: string) => {
+    try {
+      await sendPasswordResetEmail(auth, e);
+    } catch (err: any) {
+      throw new Error(friendlyAuthMessage(err));
+    }
   };
 
   const logout = async () => {
@@ -135,6 +195,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loginWithGoogle,
         loginWithEmail,
         signUpWithEmail,
+        resetPassword,
         logout,
         updateUserProfile,
       }}
