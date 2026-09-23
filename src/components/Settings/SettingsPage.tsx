@@ -38,7 +38,7 @@ export const SettingsPage: React.FC = () => {
         </div>
         <div>
           <h1 className="font-serif font-semibold text-2xl text-[#12172B] dark:text-[#F6F3EC]">
-            Account & System Preferences
+            Profile & preferences
           </h1>
           <p className="text-[13px] text-[#8A90AC]">
             Appearance theme, notification preferences, and user profile credentials.
@@ -164,7 +164,7 @@ export const SettingsPage: React.FC = () => {
             <label className="flex items-center justify-between p-3 rounded-lg bg-[#EDE8DC] dark:bg-[#12172B]/60 border border-[rgba(184,147,95,0.15)] cursor-pointer">
               <div>
                 <div className="font-semibold text-[#12172B] dark:text-[#F6F3EC]">In-App Feed Notifications</div>
-                <div className="text-[13px] text-[#8A90AC]">Receive real-time alerts in top header bell menu</div>
+                <div className="text-[13px] text-[#8A90AC]">Receive real-time alerts in the notification bell menu</div>
               </div>
               <input
                 type="checkbox"
