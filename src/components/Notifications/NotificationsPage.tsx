@@ -26,7 +26,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({
           </div>
           <div>
             <h1 className="font-serif font-semibold text-2xl text-[#12172B] dark:text-[#F6F3EC]">
-              In-App Notification Feed
+              Notifications
             </h1>
             <p className="text-[13px] text-[#8A90AC]">
               Hearing updates, status changes, and document deposit alerts.
