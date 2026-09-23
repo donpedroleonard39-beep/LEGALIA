@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { ArrowRight, Download, Filter, FolderOpen, Gavel, LayoutGrid, List, Plus, Search, SlidersHorizontal } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowRight, CalendarRange, Download, FolderOpen, Gavel, LayoutGrid, List, Menu, Plus, Search, X } from 'lucide-react';
 import { Matter, MatterStatus } from '../../types';
 import { exportMattersToCsv } from '../../utils/csvExport';
 import { DocketStamp } from '../common/DocketStamp';
@@ -14,10 +14,47 @@ interface MattersListProps {
 
 const statuses: Array<'all' | MatterStatus> = ['all', 'active', 'adjourned', 'closed', 'won', 'lost'];
 
+// Local-time YYYY-MM-DD, matching the format stored in matter.nextHearingDate.
+const toISODate = (d: Date) => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+const addDays = (days: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return toISODate(d);
+};
+
 export function MattersList({ matters, onSelectMatter, openNewMatterModal, searchQuery, setSearchQuery }: MattersListProps) {
   const [selectedStatus, setSelectedStatus] = useState<'all' | MatterStatus>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const filterMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close the filter menu on outside click or Escape.
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (filterMenuRef.current && !filterMenuRef.current.contains(e.target as Node)) setFiltersOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') setFiltersOpen(false); };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [filtersOpen]);
+
+  const hasDateFilter = Boolean(dateFrom || dateTo);
+  const activeFilterCount = (selectedStatus !== 'all' ? 1 : 0) + (hasDateFilter ? 1 : 0);
+  const clearAllFilters = () => { setSelectedStatus('all'); setDateFrom(''); setDateTo(''); };
+  const applyRange = (from: string, to: string) => { setDateFrom(from); setDateTo(to); };
+  const dateLabel = hasDateFilter
+    ? dateFrom && dateTo ? `${dateFrom} → ${dateTo}` : dateFrom ? `From ${dateFrom}` : `Until ${dateTo}`
+    : '';
 
   const filteredMatters = useMemo(() => {
     const term = searchQuery.trim().toLowerCase();
@@ -33,9 +70,18 @@ export function MattersList({ matters, onSelectMatter, openNewMatterModal, searc
         ...matter.defendants
       ].filter(Boolean).join(' ').toLowerCase();
       
-      return (!term || haystack.includes(term)) && (selectedStatus === 'all' || matter.status === selectedStatus);
+      if (term && !haystack.includes(term)) return false;
+      if (selectedStatus !== 'all' && matter.status !== selectedStatus) return false;
+
+      // Date range applies to the next hearing date (YYYY-MM-DD, so string comparison is safe).
+      if (dateFrom || dateTo) {
+        if (!matter.nextHearingDate) return false;
+        if (dateFrom && matter.nextHearingDate < dateFrom) return false;
+        if (dateTo && matter.nextHearingDate > dateTo) return false;
+      }
+      return true;
     });
-  }, [matters, searchQuery, selectedStatus]);
+  }, [matters, searchQuery, selectedStatus, dateFrom, dateTo]);
 
   return (
     <div className="page-stack">
@@ -66,13 +112,76 @@ export function MattersList({ matters, onSelectMatter, openNewMatterModal, searc
               className="field-control w-full pl-10" 
             />
           </div>
-          <button 
-            onClick={() => setFiltersOpen((open) => !open)} 
-            className={`button-secondary ${filtersOpen ? 'button-secondary-active' : ''}`}
-          >
-            <SlidersHorizontal className="h-4 w-4" /> Filters 
-            <span className="hidden sm:inline">{selectedStatus !== 'all' ? `· ${selectedStatus}` : ''}</span>
-          </button>
+          <div className="relative" ref={filterMenuRef}>
+            <button
+              onClick={() => setFiltersOpen((open) => !open)}
+              className={`button-secondary ${filtersOpen || activeFilterCount > 0 ? 'button-secondary-active' : ''}`}
+              aria-haspopup="true"
+              aria-expanded={filtersOpen}
+              title="Filters"
+            >
+              <Menu className="h-4 w-4" /> Filters
+              {activeFilterCount > 0 && <span className="filter-count">{activeFilterCount}</span>}
+            </button>
+
+            {filtersOpen && (
+              <div className="popover-panel right-0 top-full mt-2 w-[320px] max-w-[calc(100vw-2rem)] p-4">
+                <div className="mb-2 text-[11px] font-medium text-[var(--text-muted)]">Status</div>
+                <div className="flex flex-wrap gap-2">
+                  {statuses.map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => setSelectedStatus(status)}
+                      className={`filter-chip ${selectedStatus === status ? 'filter-chip-active' : ''}`}
+                    >
+                      {status === 'all' ? 'All matters' : status}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mb-2 mt-5 flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-muted)]">
+                  <CalendarRange className="h-3.5 w-3.5" /> Next hearing date
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block text-[10px] text-[var(--text-muted)]">
+                    From
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      max={dateTo || undefined}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="field-control mt-1 w-full"
+                    />
+                  </label>
+                  <label className="block text-[10px] text-[var(--text-muted)]">
+                    To
+                    <input
+                      type="date"
+                      value={dateTo}
+                      min={dateFrom || undefined}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="field-control mt-1 w-full"
+                    />
+                  </label>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button onClick={() => applyRange(toISODate(new Date()), addDays(7))} className="filter-chip">Next 7 days</button>
+                  <button onClick={() => applyRange(toISODate(new Date()), addDays(30))} className="filter-chip">Next 30 days</button>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between border-t border-[var(--border-subtle)] pt-3">
+                  <span className="text-[11px] text-[var(--text-muted)]">{filteredMatters.length} of {matters.length} matters</span>
+                  <button
+                    onClick={clearAllFilters}
+                    disabled={activeFilterCount === 0}
+                    className="text-action disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Clear all
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
           <div className="hidden items-center rounded-xl border border-[var(--border-subtle)] p-1 sm:flex">
             <button 
               onClick={() => setViewMode('list')} 
@@ -90,28 +199,24 @@ export function MattersList({ matters, onSelectMatter, openNewMatterModal, searc
             </button>
           </div>
         </div>
-        
-        {filtersOpen && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[var(--border-subtle)] pt-3">
-            <span className="mr-1 text-[11px] font-medium text-[var(--text-muted)]">Show</span>
-            {statuses.map((status) => (
-              <button 
-                key={status} 
-                onClick={() => setSelectedStatus(status)} 
-                className={`filter-chip ${selectedStatus === status ? 'filter-chip-active' : ''}`}
-              >
-                {status === 'all' ? 'All matters' : status}
-              </button>
-            ))}
-            <span className="ml-auto text-[11px] text-[var(--text-muted)]">{filteredMatters.length} of {matters.length}</span>
-          </div>
-        )}
       </section>
 
       <div className="flex items-center justify-between">
-        <p className="text-[12px] text-[var(--text-muted)]">
-          <span className="font-semibold text-[var(--text-main)]">{filteredMatters.length}</span> {filteredMatters.length === 1 ? 'matter' : 'matters'} in view
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-[12px] text-[var(--text-muted)]">
+            <span className="font-semibold text-[var(--text-main)]">{filteredMatters.length}</span> {filteredMatters.length === 1 ? 'matter' : 'matters'} in view
+          </p>
+          {selectedStatus !== 'all' && (
+            <button onClick={() => setSelectedStatus('all')} className="filter-chip filter-chip-active inline-flex items-center gap-1" title="Remove status filter">
+              {selectedStatus} <X className="h-3 w-3" />
+            </button>
+          )}
+          {hasDateFilter && (
+            <button onClick={() => applyRange('', '')} className="filter-chip filter-chip-active inline-flex items-center gap-1" title="Remove date filter">
+              {dateLabel} <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
         <p className="hidden font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--text-muted)] sm:block">Access is matter-specific</p>
       </div>
 
@@ -119,11 +224,11 @@ export function MattersList({ matters, onSelectMatter, openNewMatterModal, searc
         <div className="panel-card">
           <div className="empty-state">
             <div className="empty-state-icon"><FolderOpen className="h-6 w-6" /></div>
-            <h2 className="font-serif-title text-[18px] font-semibold">{matters.length === 0 ? 'Your register is empty' : 'No matters match that search'}</h2>
+            <h2 className="font-serif-title text-[18px] font-semibold">{matters.length === 0 ? 'Your register is empty' : 'No matters match these filters'}</h2>
             <p className="mt-2 max-w-sm text-center text-[12px] leading-5 text-[var(--text-muted)]">
               {matters.length === 0 
                 ? 'Open a matter to create a secure workspace for its papers, people, and appearances.' 
-                : 'Try a different party name, suit number, or status filter.'}
+                : 'Try a different party name, suit number, status, or date range.'}
             </p>
             {matters.length === 0 && (
               <button onClick={openNewMatterModal} className="button-primary mt-5">
