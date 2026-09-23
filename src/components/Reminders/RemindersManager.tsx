@@ -120,7 +120,7 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({ matters }) =
           </div>
           <div>
             <h1 className="font-serif font-semibold text-2xl text-[#12172B] dark:text-[#F6F3EC]">
-              Hearing Alerts & Reminder Scheduler
+              Hearing diary
             </h1>
             <p className="text-[13px] text-[#8A90AC]">
               Set automated notifications for upcoming court cause list dates and statutory filing windows.
