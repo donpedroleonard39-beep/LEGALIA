@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Clock, Bell, Trash2, CheckCircle2, AlertCircle, Plus, Mail } from 'lucide-react';
 import { Matter, Reminder } from '../../types';
 import { fetchUserReminders, createReminder, deleteReminder } from '../../services/matterService';
@@ -34,6 +34,15 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({ matters }) =
     setLoading(false);
   };
 
+  // Upcoming alerts first, soonest at the top; past alerts follow, most recent first.
+  const sortedReminders = useMemo(() => {
+    const now = Date.now();
+    const time = (r: Reminder) => new Date(r.remindAt).getTime();
+    const upcoming = reminders.filter((r) => time(r) >= now).sort((a, b) => time(a) - time(b));
+    const past = reminders.filter((r) => time(r) < now).sort((a, b) => time(b) - time(a));
+    return { upcoming, past };
+  }, [reminders]);
+
   const selectedMatter = matters.find((m) => m.id === selectedMatterId);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -58,6 +67,41 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({ matters }) =
     setMessage('');
     loadReminders();
   };
+
+  const renderReminder = (r: Reminder) => (
+                <div
+                  key={r.id}
+                  className="p-4 rounded-lg bg-[#EDE8DC] dark:bg-[#12172B]/60 border border-[rgba(184,147,95,0.2)] flex items-start justify-between text-[13px]"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-[#B8935F]">
+                        {r.suitNumber}
+                      </span>
+                      <span className="text-[13px] text-[#8A90AC]">
+                        {new Date(r.remindAt).toLocaleString()}
+                      </span>
+                    </div>
+
+                    <p className="font-medium text-[#12172B] dark:text-[#F6F3EC]">
+                      {r.message}
+                    </p>
+
+                    <div className="text-[13px] text-[#8A90AC] flex items-center gap-2">
+                      <span>Channels: {r.channel.join(', ')}</span>
+                      &bull;
+                      <span>Status: {r.fired ? 'FIRED' : 'PENDING'}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleDelete(r.id)}
+                    className="p-1.5 rounded-lg text-[#8A90AC] hover:text-[#C1554A] hover:bg-[#C1554A]/10 transition"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              );
 
   const handleDelete = async (id: string) => {
     await deleteReminder(id);
@@ -178,40 +222,16 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({ matters }) =
                 No active hearing alerts scheduled.
               </div>
             ) : (
-              reminders.map((r) => (
-                <div
-                  key={r.id}
-                  className="p-4 rounded-lg bg-[#EDE8DC] dark:bg-[#12172B]/60 border border-[rgba(184,147,95,0.2)] flex items-start justify-between text-[13px]"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-[#B8935F]">
-                        {r.suitNumber}
-                      </span>
-                      <span className="text-[13px] text-[#8A90AC]">
-                        {new Date(r.remindAt).toLocaleString()}
-                      </span>
-                    </div>
-
-                    <p className="font-medium text-[#12172B] dark:text-[#F6F3EC]">
-                      {r.message}
-                    </p>
-
-                    <div className="text-[13px] text-[#8A90AC] flex items-center gap-2">
-                      <span>Channels: {r.channel.join(', ')}</span>
-                      &bull;
-                      <span>Status: {r.fired ? 'FIRED' : 'PENDING'}</span>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => handleDelete(r.id)}
-                    className="p-1.5 rounded-lg text-[#8A90AC] hover:text-[#C1554A] hover:bg-[#C1554A]/10 transition"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))
+              <>
+                {sortedReminders.upcoming.length > 0 && (
+                  <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#8A90AC]">Upcoming · soonest first</div>
+                )}
+                {sortedReminders.upcoming.map(renderReminder)}
+                {sortedReminders.past.length > 0 && (
+                  <div className="pt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[#8A90AC]">Past</div>
+                )}
+                {sortedReminders.past.map(renderReminder)}
+              </>
             )}
           </div>
         </div>
