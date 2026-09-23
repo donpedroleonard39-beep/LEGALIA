@@ -12,7 +12,7 @@ const navLabels: Record<string, string> = {
   matters: 'Matter register',
   reminders: 'Hearing diary',
   notifications: 'Notifications',
-  settings: 'Preferences',
+  settings: 'Profile & preferences',
 };
 
 export function Navbar({
@@ -39,6 +39,8 @@ export function Navbar({
 
         <div className="hidden h-8 w-px bg-[var(--border-subtle)] lg:block" />
 
+        {/* The Matter register has its own search bar, so the top bar only shows one elsewhere. */}
+        {activeTab !== 'matters' && (
         <div className="relative ml-auto w-full max-w-[420px]">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
           <input
@@ -46,9 +48,11 @@ export function Navbar({
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search matters, parties, judges…"
             className="field-control w-full pl-10"
+            onKeyDown={(event) => { if (event.key === 'Enter' && searchQuery.trim()) setActiveTab('matters'); }}
             aria-label="Search matters"
           />
         </div>
+        )}
       </div>
     </header>
   );
