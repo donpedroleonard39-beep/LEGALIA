@@ -9,7 +9,6 @@ import {
   LogOut,
   Moon,
   Plus,
-  Settings,
   Sun,
   UserRound,
 } from 'lucide-react';
@@ -28,7 +27,6 @@ const navItems = [
   { id: 'dashboard', label: 'Workspace', icon: LayoutDashboard },
   { id: 'matters', label: 'Matter register', icon: Gavel },
   { id: 'reminders', label: 'Hearing diary', icon: CalendarClock },
-  { id: 'notifications', label: 'Notifications', icon: Bell },
 ];
 
 function initials(name?: string) {
@@ -83,7 +81,6 @@ export function Sidebar({ activeTab, setActiveTab, openNewMatterModal, openDeadl
               label={item.label}
               active={activeTab === item.id}
               onClick={() => setActiveTab(item.id)}
-              badge={item.id === 'notifications' && unreadCount > 0 ? unreadCount : undefined}
             />
           ))}
         </nav>
@@ -93,7 +90,7 @@ export function Sidebar({ activeTab, setActiveTab, openNewMatterModal, openDeadl
             <RailItem
               icon={<Bell />}
               label="Notifications"
-              active={bellOpen}
+              active={bellOpen || activeTab === 'notifications'}
               onClick={() => setBellOpen((open) => !open)}
               badge={unreadCount > 0 ? unreadCount : undefined}
             />
@@ -101,7 +98,7 @@ export function Sidebar({ activeTab, setActiveTab, openNewMatterModal, openDeadl
               <div className="popover-panel bottom-0 left-full ml-3 w-[320px] p-2">
                 <div className="flex items-center justify-between px-3 py-2">
                   <div>
-                    <p className="font-serif-title text-[15px] font-semibold">Your alerts</p>
+                    <p className="font-serif-title text-[15px] font-semibold">Notifications</p>
                     <p className="text-[11px] text-[var(--text-muted)]">Updates from your matters</p>
                   </div>
                   <button onClick={() => setBellOpen(false)} className="text-[11px] font-medium text-[var(--gold)]">Close</button>
@@ -129,6 +126,12 @@ export function Sidebar({ activeTab, setActiveTab, openNewMatterModal, openDeadl
                     </button>
                   ))}
                 </div>
+                <button
+                  onClick={() => { setBellOpen(false); setActiveTab('notifications'); }}
+                  className="mt-1 w-full rounded-xl border-t border-[var(--border-subtle)] px-3 py-2.5 text-center text-[11px] font-semibold text-[var(--gold)] hover:bg-[var(--bg-surface-hover)]"
+                >
+                  View all notifications
+                </button>
               </div>
             )}
           </div>
@@ -149,8 +152,7 @@ export function Sidebar({ activeTab, setActiveTab, openNewMatterModal, openDeadl
                 <button className="menu-item" onClick={() => { setTheme(isDark ? 'light' : 'dark'); }}>
                   {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />} {isDark ? 'Light appearance' : 'Dark appearance'}
                 </button>
-                <button className="menu-item" onClick={() => { setActiveTab('settings'); setProfileOpen(false); }}><UserRound className="h-4 w-4" /> My profile</button>
-                <button className="menu-item" onClick={() => { setActiveTab('settings'); setProfileOpen(false); }}><Settings className="h-4 w-4" /> Preferences</button>
+                <button className="menu-item" onClick={() => { setActiveTab('settings'); setProfileOpen(false); }}><UserRound className="h-4 w-4" /> Profile &amp; preferences</button>
                 <button className="menu-item" onClick={() => { openDeadlineCalcModal(); setProfileOpen(false); }}><Calculator className="h-4 w-4" /> Deadline calculator</button>
                 <div className="my-1 border-t border-[var(--border-subtle)]" />
                 <button className="menu-item text-[var(--alert-red)]" onClick={() => void logout()}><LogOut className="h-4 w-4" /> Sign out</button>
@@ -163,7 +165,7 @@ export function Sidebar({ activeTab, setActiveTab, openNewMatterModal, openDeadl
       {/* Mobile bottom tab bar */}
       <nav aria-label="Mobile navigation" className="bottom-tab-bar lg:hidden">
         <div className="grid grid-cols-5 items-end px-1 py-1.5">
-          <MobileTab id="dashboard" label="Home" icon={<LayoutDashboard />} activeTab={activeTab} onClick={() => setActiveTab('dashboard')} />
+          <MobileTab id="dashboard" label="Workspace" icon={<LayoutDashboard />} activeTab={activeTab} onClick={() => setActiveTab('dashboard')} />
           <MobileTab id="matters" label="Matters" icon={<Gavel />} activeTab={activeTab} onClick={() => setActiveTab('matters')} />
           <button onClick={openNewMatterModal} className="flex flex-col items-center justify-center">
             <span className="-mt-5 flex h-12 w-12 items-center justify-center rounded-full border-4 border-[var(--bg-base)] bg-[var(--gold)] text-[var(--ink-raised)] shadow-lg">
@@ -172,7 +174,7 @@ export function Sidebar({ activeTab, setActiveTab, openNewMatterModal, openDeadl
             <span className="mt-1 text-[10px] font-semibold text-[var(--text-muted)]">New</span>
           </button>
           <MobileTab id="reminders" label="Diary" icon={<CalendarClock />} activeTab={activeTab} onClick={() => setActiveTab('reminders')} />
-          <MobileTab id="notifications" label="Alerts" icon={<Bell />} activeTab={activeTab} onClick={() => setActiveTab('notifications')} badge={unreadCount} />
+          <MobileTab id="notifications" label="Notifications" icon={<Bell />} activeTab={activeTab} onClick={() => setActiveTab('notifications')} badge={unreadCount} />
         </div>
       </nav>
     </>
