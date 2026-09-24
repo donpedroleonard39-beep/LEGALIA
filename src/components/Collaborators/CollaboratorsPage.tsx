@@ -84,7 +84,7 @@ export const CollaboratorsPage: React.FC<CollaboratorsPageProps> = ({ matters, o
         <div>
           <h1 className="page-title">People</h1>
           <p className="page-subtitle">
-            Everyone who can see your matters. Invite your lawyer, client or colleague with a link — you choose if they can edit or only view.
+            Everyone who can see your matters. Invite by email to share several matters at once, or send a link to someone without an account. You choose view or edit for each matter.
           </p>
         </div>
         <button onClick={() => setShowInvite(true)} className="button-primary">
@@ -118,7 +118,7 @@ export const CollaboratorsPage: React.FC<CollaboratorsPageProps> = ({ matters, o
         <div className="panel-heading"><h2 className="section-title">People with access</h2></div>
         {people.length === 0 ? (
           <p className="py-6 text-center text-[13px] text-[var(--text-muted)]">
-            You haven’t shared any matters yet. Click “Invite someone” to create a link.
+            You haven’t shared any matters yet. Click “Invite someone” to share by email or link.
           </p>
         ) : (
           <div className="divide-y divide-[var(--border-subtle)]">
@@ -195,7 +195,7 @@ export const CollaboratorsPage: React.FC<CollaboratorsPageProps> = ({ matters, o
         )}
       </section>
 
-      {showInvite && <InviteCollaboratorModal matters={owned} onClose={() => setShowInvite(false)} onSent={() => {}} />}
+      {showInvite && <InviteCollaboratorModal matters={owned} onClose={() => setShowInvite(false)} onSent={loadPending} />}
       {addingFor && (
         <AddMattersModal
           person={addingFor}
