@@ -462,7 +462,6 @@ function PeoplePanel({ matter, isOwner, onRefresh }: { matter: Matter; isOwner: 
   const [profiles, setProfiles] = useState<Record<string, { name: string; email: string }>>({});
   const [busyUid, setBusyUid] = useState<string | null>(null);
   const [busyInviteId, setBusyInviteId] = useState<string | null>(null);
-
   const memberUids = useMemo(() => Object.keys(matter.members), [matter.members]);
 
   useEffect(() => {
@@ -557,7 +556,7 @@ function PeoplePanel({ matter, isOwner, onRefresh }: { matter: Matter; isOwner: 
                 <option value="viewer">Can view</option>
               </select>
               <button onClick={handleInvite} disabled={inviteLoading} className="button-secondary text-[12px]">
-                <UserPlus className="h-3.5 w-3.5" /> {inviteLoading ? 'Generating…' : 'Invite'}
+                <Link2 className="h-3.5 w-3.5" /> {inviteLoading ? 'Generating…' : 'Invite link'}
               </button>
             </div>
           )}
