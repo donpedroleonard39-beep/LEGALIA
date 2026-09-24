@@ -37,6 +37,21 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     reloadNotifications();
   }, [currentUser]);
 
+  // There is no live subscription, so pick up new notifications (for example
+  // an invitation) every minute and whenever the tab is brought back into view.
+  useEffect(() => {
+    if (!currentUser) return;
+    const refresh = () => { reloadNotifications().catch(() => {}); };
+    const timer = window.setInterval(refresh, 60_000);
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
+
   const markRead = async (id: string) => {
     await markNotificationAsRead(id);
     setNotifications((prev) =>
