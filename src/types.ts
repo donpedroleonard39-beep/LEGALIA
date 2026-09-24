@@ -111,6 +111,15 @@ export interface AppNotification {
   message: string;
   read: boolean;
   createdAt: string;
+  // Present on in-app collaborator invitations (type 'invite').
+  invite?: NotificationInvite;
+}
+
+export interface NotificationInvite {
+  id: string;
+  inviterName: string;
+  status: 'pending' | 'accepted' | 'declined' | 'revoked';
+  grants: Array<{ matterId: string; permission: Exclude<MatterPermission, 'owner'>; suitNumber: string; title: string }>;
 }
 
 export interface AuditLog {
