@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AppNotification } from '../types';
-import { fetchNotifications, markNotificationAsRead } from '../services/matterService';
+import { deleteNotifications, fetchNotifications, markNotificationAsRead, markNotificationsRead, setNotificationsArchived } from '../services/matterService';
 import { useAuth } from './AuthContext';
 
 interface Toast {
@@ -14,6 +14,10 @@ interface NotificationContextType {
   notifications: AppNotification[];
   unreadCount: number;
   markRead: (id: string) => Promise<void>;
+  markAllRead: () => Promise<void>;
+  archive: (ids: string[]) => Promise<void>;
+  unarchive: (ids: string[]) => Promise<void>;
+  remove: (ids: string[]) => Promise<void>;
   toasts: Toast[];
   showToast: (title: string, message: string, type?: Toast['type']) => void;
   removeToast: (id: string) => void;
@@ -71,7 +75,44 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  // Update the list straight away, then save; reload from the server if saving fails.
+  const optimistic = async (change: (list: AppNotification[]) => AppNotification[], save: () => Promise<void>) => {
+    setNotifications(change);
+    try {
+      await save();
+    } catch (err) {
+      await reloadNotifications().catch(() => {});
+      throw err;
+    }
+  };
+
+  const markAllRead = async () => {
+    const ids = notifications.filter((n) => !n.read && !n.archived).map((n) => n.id);
+    if (ids.length === 0) return;
+    const set = new Set(ids);
+    await optimistic((list) => list.map((n) => (set.has(n.id) ? { ...n, read: true } : n)), () => markNotificationsRead(ids));
+  };
+
+  const archive = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    const set = new Set(ids);
+    await optimistic((list) => list.map((n) => (set.has(n.id) ? { ...n, archived: true, read: true } : n)), () => setNotificationsArchived(ids, true));
+  };
+
+  const unarchive = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    const set = new Set(ids);
+    await optimistic((list) => list.map((n) => (set.has(n.id) ? { ...n, archived: false } : n)), () => setNotificationsArchived(ids, false));
+  };
+
+  const remove = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    const set = new Set(ids);
+    await optimistic((list) => list.filter((n) => !set.has(n.id)), () => deleteNotifications(ids));
+  };
+
+  // Archived notifications never count towards the badge.
+  const unreadCount = notifications.filter((n) => !n.read && !n.archived).length;
 
   return (
     <NotificationContext.Provider
@@ -79,6 +120,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         notifications,
         unreadCount,
         markRead,
+        markAllRead,
+        archive,
+        unarchive,
+        remove,
         toasts,
         showToast,
         removeToast,

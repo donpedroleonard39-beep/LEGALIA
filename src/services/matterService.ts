@@ -1,6 +1,6 @@
 import { 
   collection, doc, getDocs, getDoc, setDoc, 
-  updateDoc, deleteDoc, deleteField, query, where, addDoc 
+  updateDoc, deleteDoc, deleteField, query, where, addDoc, writeBatch 
 } from 'firebase/firestore';
 import { 
   ref, uploadBytesResumable, getDownloadURL, deleteObject 
@@ -315,7 +315,35 @@ export async function deleteReminder(id: string): Promise<void> {
 export async function fetchNotifications(uid: string): Promise<AppNotification[]> {
   const q = query(collection(db, NOTIFICATIONS_COLLECTION), where('userId', '==', uid));
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as AppNotification));
+  // Newest first (the query itself is unordered).
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data() } as AppNotification))
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+}
+
+// Firestore batches allow 500 writes; chunk to stay under it.
+async function batchNotifications(ids: string[], apply: (batch: ReturnType<typeof writeBatch>, id: string) => void) {
+  for (let i = 0; i < ids.length; i += 400) {
+    const batch = writeBatch(db);
+    ids.slice(i, i + 400).forEach((id) => apply(batch, id));
+    await batch.commit();
+  }
+}
+
+export async function markNotificationsRead(ids: string[]): Promise<void> {
+  await batchNotifications(ids, (b, id) => b.update(doc(db, NOTIFICATIONS_COLLECTION, id), { read: true }));
+}
+
+/** archived=true moves to the Archive (and marks read); false moves back to the inbox. */
+export async function setNotificationsArchived(ids: string[], archived: boolean): Promise<void> {
+  await batchNotifications(ids, (b, id) => b.update(
+    doc(db, NOTIFICATIONS_COLLECTION, id),
+    archived ? { archived: true, read: true, archivedAt: new Date().toISOString() } : { archived: false },
+  ));
+}
+
+export async function deleteNotifications(ids: string[]): Promise<void> {
+  await batchNotifications(ids, (b, id) => b.delete(doc(db, NOTIFICATIONS_COLLECTION, id)));
 }
 
 export async function markNotificationAsRead(id: string): Promise<void> {

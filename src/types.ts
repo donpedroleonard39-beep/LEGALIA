@@ -110,6 +110,9 @@ export interface AppNotification {
   type: 'hearing_upcoming' | 'status_change' | 'document_added' | 'reminder' | 'invite' | 'system';
   message: string;
   read: boolean;
+  /** In the Archive tab instead of the inbox. */
+  archived?: boolean;
+  archivedAt?: string;
   createdAt: string;
   // Present on in-app collaborator invitations (type 'invite').
   invite?: NotificationInvite;
