@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { X, Scale, Eye, EyeOff } from 'lucide-react';
+import { X, Eye, EyeOff } from 'lucide-react';
+import { LogoMark } from '../common/LogoMark';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 
@@ -89,9 +90,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, pendingIn
 
         <div className="flex items-center justify-between pb-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center gap-3">
-            <div className="icon-box-32">
-              <Scale className="w-4 h-4" style={{ color: 'var(--gold)' }} />
-            </div>
+            <LogoMark size={34} />
             <div className="font-serif font-semibold text-lg" style={{ color: 'var(--text-main)' }}>
               Welcome to Legalia
             </div>
@@ -107,7 +106,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, pendingIn
 
         {pendingInvite && (
           <div className="mt-4 rounded-lg px-3 py-2.5 text-[12px] leading-5" style={{ border: '1px solid rgba(208,173,114,.35)', background: 'var(--gold-soft)', color: 'var(--text-main)' }}>
-            <strong>You have been invited</strong>{pendingInvite.matterSuitNumber ? ` to ${pendingInvite.matterSuitNumber}` : ''}{pendingInvite.matterTitle ? ` · ${pendingInvite.matterTitle}` : ''}. Sign in or create an account to accept access.
+            <strong>You’ve been invited to a matter</strong>{pendingInvite.matterSuitNumber ? ` (${pendingInvite.matterSuitNumber}${pendingInvite.matterTitle ? ` · ${pendingInvite.matterTitle}` : ''})` : ''}. Sign in, or create a free account, and you’ll go straight to it.
           </div>
         )}
 

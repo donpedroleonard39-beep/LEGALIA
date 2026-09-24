@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Calculator, Gavel, LogOut, Moon, Search, Settings, Sun, Users } from 'lucide-react';
+import { Calculator, LogOut, Moon, Search, Settings, Sun, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { PAGES, initials, type PageId } from './navConfig';
+import { LogoMark } from './common/LogoMark';
 
 interface NavbarProps {
   activeTab: string;
@@ -32,7 +33,7 @@ export function Navbar({ activeTab, setActiveTab, searchQuery, setSearchQuery, o
     <header className="sticky top-0 z-40 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]/95 backdrop-blur-xl">
       <div className="mx-auto flex h-[64px] w-full max-w-[1600px] items-center gap-3 px-4 sm:px-6 lg:px-8">
         <button onClick={() => setActiveTab('dashboard')} className="flex shrink-0 items-center lg:hidden" aria-label="Legalia home">
-          <span className="brand-mark"><Gavel className="h-[18px] w-[18px]" /></span>
+          <LogoMark size={36} />
         </button>
 
         <div className="hidden min-w-0 lg:block">

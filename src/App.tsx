@@ -17,7 +17,7 @@ import { CollaboratorsPage } from './components/Collaborators/CollaboratorsPage'
 import { AuthModal } from './components/Auth/AuthModal';
 import { Matter } from './types';
 import { fetchAllMatters, fetchInvite, acceptInvite } from './services/matterService';
-import { Gavel } from 'lucide-react';
+import { LogoMark } from './components/common/LogoMark';
 
 // Parses /invite/{matterId}/{inviteId}?token=... from the current URL. There
 // is no router in this app (see main.tsx) - this single pattern is handled
@@ -34,7 +34,13 @@ function AppContent() {
   const { firebaseUser, currentUser, loading: authLoading } = useAuth();
   const { showToast } = useNotifications();
 
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  // App shortcuts (installed app menu) open ?tab=reminders or ?new=1.
+  const startParams = new URLSearchParams(window.location.search);
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    const tab = startParams.get('tab');
+    return tab && ['dashboard', 'matters', 'reminders', 'collaborators', 'notifications', 'settings'].includes(tab) ? tab : 'dashboard';
+  });
+  const [openNewOnStart, setOpenNewOnStart] = useState(() => startParams.get('new') === '1');
   const [matters, setMatters] = useState<Matter[]>([]);
   const [selectedMatter, setSelectedMatter] = useState<Matter | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -52,6 +58,7 @@ function AppContent() {
   const [pendingInvite, setPendingInvite] = useState(() => parseInviteFromLocation());
   const [pendingInviteMeta, setPendingInviteMeta] = useState<{ matterTitle?: string; matterSuitNumber?: string } | null>(null);
   const [inviteProcessed, setInviteProcessed] = useState(false);
+  const [inviteDismissed, setInviteDismissed] = useState(false);
 
   useEffect(() => {
     if (firebaseUser && currentUser) {
@@ -106,6 +113,16 @@ function AppContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firebaseUser, pendingInvite, inviteProcessed]);
 
+  // Handle the "New matter" app shortcut once signed in, then tidy the URL.
+  useEffect(() => {
+    if (!firebaseUser || !currentUser) return;
+    if (openNewOnStart) { setIsMatterModalOpen(true); setOpenNewOnStart(false); }
+    if (window.location.search.includes('tab=') || window.location.search.includes('new=')) {
+      if (!window.location.pathname.startsWith('/invite/')) window.history.replaceState({}, '', '/');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firebaseUser, currentUser]);
+
   const loadMatters = async () => {
     if (!firebaseUser || !currentUser) return;
     try {
@@ -141,7 +158,7 @@ function AppContent() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--bg-base)]">
         <div className="flex flex-col items-center gap-3 text-[var(--text-muted)]">
-          <Gavel className="w-8 h-8 text-[var(--gold)] animate-pulse" />
+          <LogoMark size={48} className="animate-pulse" />
           <span className="text-[13px] font-medium">Loading Legalia…</span>
         </div>
       </div>
@@ -159,11 +176,15 @@ function AppContent() {
         <LandingPage
           isAuthed={false}
           openAuthModal={(mode = 'signup') => { setAuthMode(mode); setIsAuthModalOpen(true); }}
+          onInviteBanner={pendingInvite && inviteDismissed ? () => { setInviteDismissed(false); } : undefined}
         />
         <AuthModal
-          isOpen={isAuthModalOpen || !!pendingInvite}
-          onClose={() => setIsAuthModalOpen(false)}
-          pendingInvite={pendingInviteMeta}
+          // An invite link opens the modal by itself, but the X must still close it
+          // (it used to be stuck open). The landing page then shows a banner to reopen it.
+          isOpen={isAuthModalOpen || (!!pendingInvite && !inviteDismissed)}
+          onClose={() => { setIsAuthModalOpen(false); if (pendingInvite) setInviteDismissed(true); }}
+          // Before sign-in we can't read the invite's details yet, but still say it's an invite.
+          pendingInvite={pendingInvite ? (pendingInviteMeta || {}) : null}
           initialMode={authMode}
         />
       </>

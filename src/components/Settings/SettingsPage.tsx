@@ -1,5 +1,6 @@
-import React, { useState, type ReactNode } from 'react';
-import { Bell, Monitor, Moon, Sun, User } from 'lucide-react';
+import React, { useEffect, useState, type ReactNode } from 'react';
+import { Bell, Download, Monitor, Moon, Sun, User } from 'lucide-react';
+import { LogoMark } from '../common/LogoMark';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -101,6 +102,8 @@ export const SettingsPage: React.FC = () => {
         />
       </Card>
 
+      <InstallCard />
+
       <div className="flex justify-end">
         <button type="submit" disabled={saving} className="button-primary">{saving ? 'Saving…' : 'Save changes'}</button>
       </div>
@@ -132,5 +135,53 @@ function Toggle({ label, hint, checked, onChange }: { label: string; hint: strin
       </span>
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-5 w-5 shrink-0 accent-[var(--gold)]" />
     </label>
+  );
+}
+
+// "Install Legalia" - uses the browser's install prompt where available,
+// and explains the manual steps on iPhone/iPad (Safari has no prompt).
+function InstallCard() {
+  const [prompt, setPrompt] = useState<any>(() => (window as any).__legaliaInstallPrompt || null);
+  const [installed, setInstalled] = useState(() =>
+    window.matchMedia?.('(display-mode: standalone)').matches || (navigator as any).standalone === true);
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+  useEffect(() => {
+    const onReady = () => setPrompt((window as any).__legaliaInstallPrompt || null);
+    const onInstalled = () => { setInstalled(true); setPrompt(null); };
+    window.addEventListener('legalia-installable', onReady);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => { window.removeEventListener('legalia-installable', onReady); window.removeEventListener('appinstalled', onInstalled); };
+  }, []);
+
+  const install = async () => {
+    if (!prompt) return;
+    prompt.prompt();
+    const choice = await prompt.userChoice.catch(() => null);
+    if (choice?.outcome === 'accepted') setInstalled(true);
+    (window as any).__legaliaInstallPrompt = null;
+    setPrompt(null);
+  };
+
+  return (
+    <Card icon={<Download />} title="Legalia app">
+      <div className="flex items-start gap-4">
+        <LogoMark size={52} />
+        <div className="min-w-0 flex-1 text-[14px]">
+          {installed ? (
+            <p className="text-[var(--text-main)]">Legalia is installed on this device. Open it from your home screen or app list.</p>
+          ) : prompt ? (
+            <>
+              <p className="text-[var(--text-main)]">Install Legalia on this device. It opens in its own window, like a normal app, with its own icon.</p>
+              <button type="button" onClick={install} className="button-primary mt-3"><Download className="h-4 w-4" /> Install app</button>
+            </>
+          ) : isIOS ? (
+            <p className="text-[var(--text-main)]">To add Legalia to your iPhone or iPad: open this site in <strong>Safari</strong>, tap the <strong>Share</strong> button, then <strong>Add to Home Screen</strong>.</p>
+          ) : (
+            <p className="text-[var(--text-main)]">To install Legalia, open your browser’s menu and choose <strong>Install app</strong> or <strong>Add to Home screen</strong>. (Works in Chrome, Edge and on Android.)</p>
+          )}
+        </div>
+      </div>
+    </Card>
   );
 }

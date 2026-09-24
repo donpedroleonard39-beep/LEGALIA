@@ -1,5 +1,6 @@
 import React, { type ReactNode } from 'react';
-import { Calculator, Gavel, LogOut, Moon, Plus, Sun } from 'lucide-react';
+import { Calculator, LogOut, Moon, Plus, Sun } from 'lucide-react';
+import { LogoMark } from './common/LogoMark';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -22,7 +23,7 @@ export function Sidebar({ activeTab, setActiveTab, openNewMatterModal, openDeadl
       {/* Desktop sidebar - every item has a visible label */}
       <aside aria-label="Main navigation" className="side hidden lg:flex">
         <button onClick={() => setActiveTab('dashboard')} className="side-brand" aria-label="Legalia home">
-          <span className="brand-mark"><Gavel className="h-[18px] w-[18px]" /></span>
+          <LogoMark size={36} />
           <span className="font-serif-title text-[18px] font-semibold tracking-tight">Legalia</span>
         </button>
 

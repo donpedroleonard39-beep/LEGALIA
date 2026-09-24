@@ -8,14 +8,17 @@ import {
   Database,
   Bell,
 } from 'lucide-react';
+import { LogoMark } from './common/LogoMark';
 
 interface LandingPageProps {
   isAuthed: boolean;
   setActiveTab?: (tab: string) => void;
   openAuthModal: (mode?: 'signin' | 'signup') => void;
+  /** Set when the visitor came from an invite link and closed the sign-in box. */
+  onInviteBanner?: () => void;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ isAuthed, setActiveTab, openAuthModal }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ isAuthed, setActiveTab, openAuthModal, onInviteBanner }) => {
   const enterPractice = () => {
     if (isAuthed && setActiveTab) {
       setActiveTab('dashboard');
@@ -27,6 +30,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({ isAuthed, setActiveTab
   return (
     <div className="landing w-full min-h-screen flex flex-col justify-between overflow-x-hidden text-[14px]">
       
+      {onInviteBanner && (
+        <div className="flex flex-wrap items-center justify-center gap-3 px-4 py-3 text-center text-[14px]" style={{ background: 'var(--gold-soft)', borderBottom: '1px solid var(--border-subtle)' }}>
+          <span style={{ color: 'var(--paper)' }}>You’ve been invited to a matter on Legalia.</span>
+          <button onClick={onInviteBanner} className="button-primary !min-h-[32px] !py-1 text-[13px]">Sign in to accept</button>
+        </div>
+      )}
+
+      {/* Top bar with the logo */}
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 pt-6">
+        <div className="flex items-center gap-2.5">
+          <LogoMark size={38} />
+          <span className="font-serif text-[21px] font-semibold tracking-tight" style={{ color: 'var(--paper)' }}>Legalia</span>
+        </div>
+        {!isAuthed && (
+          <button onClick={() => openAuthModal('signin')} className="text-[14px] font-semibold" style={{ color: 'var(--gold)' }}>
+            Sign in
+          </button>
+        )}
+      </header>
+
       {/* Hero Header */}
       <div className="relative pt-12 pb-20 px-6 max-w-6xl mx-auto text-center">
         
