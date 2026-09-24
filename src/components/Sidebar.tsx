@@ -11,6 +11,7 @@ import {
   Plus,
   Sun,
   UserRound,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -112,7 +113,8 @@ export function Sidebar({ activeTab, setActiveTab, openNewMatterModal, openDeadl
                       onClick={() => {
                         if (!notification.read) void markRead(notification.id);
                         setBellOpen(false);
-                        if (notification.matterId) setActiveTab('matters');
+                        if (notification.invite) setActiveTab('notifications');
+                        else if (notification.matterId) setActiveTab('matters');
                       }}
                       className={`w-full rounded-xl p-3 text-left transition hover:bg-[var(--bg-surface-hover)] ${notification.read ? '' : 'bg-[var(--gold-soft)]'}`}
                     >
@@ -152,6 +154,7 @@ export function Sidebar({ activeTab, setActiveTab, openNewMatterModal, openDeadl
                 <button className="menu-item" onClick={() => { setTheme(isDark ? 'light' : 'dark'); }}>
                   {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />} {isDark ? 'Light appearance' : 'Dark appearance'}
                 </button>
+                <button className="menu-item" onClick={() => { setActiveTab('collaborators'); setProfileOpen(false); }}><Users className="h-4 w-4" /> Collaborators</button>
                 <button className="menu-item" onClick={() => { setActiveTab('settings'); setProfileOpen(false); }}><UserRound className="h-4 w-4" /> Profile &amp; preferences</button>
                 <button className="menu-item" onClick={() => { openDeadlineCalcModal(); setProfileOpen(false); }}><Calculator className="h-4 w-4" /> Deadline calculator</button>
                 <div className="my-1 border-t border-[var(--border-subtle)]" />
