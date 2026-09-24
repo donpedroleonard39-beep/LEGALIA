@@ -10,6 +10,7 @@ import {
   Plus,
   ShieldCheck,
   Sparkles,
+  UserPlus,
   Users,
 } from 'lucide-react';
 import { Matter } from '../types';
@@ -220,6 +221,12 @@ the next appearance
               title="Calculate a deadline" 
               body="Check a procedural window" 
               onClick={openDeadlineCalcModal} 
+            />
+            <QuickAction 
+              icon={<UserPlus />} 
+              title="Invite a collaborator" 
+              body="Share matters with a colleague" 
+              onClick={() => setActiveTab('collaborators')} 
             />
             <QuickAction 
               icon={<Users />} 
