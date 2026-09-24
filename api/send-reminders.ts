@@ -33,7 +33,7 @@ interface UserDoc {
   uid: string;
   name?: string;
   email?: string;
-  notifyPrefs?: { email?: boolean };
+  notifyPrefs?: { email?: boolean; inApp?: boolean };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -69,44 +69,54 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const reminder = reminderSnap.data() as ReminderDoc;
 
     try {
-      if (!reminder.channel?.includes('email')) {
-        results.push({ id: reminder.id, status: 'skipped', detail: 'email channel not requested' });
+      // The matter may have been deleted since the reminder was created.
+      const matterSnap = reminder.matterId ? await db.collection('matters').doc(reminder.matterId).get() : null;
+      if (matterSnap && !matterSnap.exists) {
+        await reminderSnap.ref.delete();
+        results.push({ id: reminderSnap.id, status: 'skipped', detail: 'matter deleted' });
+        continue;
+      }
+      // ...or the person may have been removed from it.
+      const members = (matterSnap?.data()?.members || {}) as Record<string, string>;
+      if (matterSnap && !members[reminder.userId]) {
         await reminderSnap.ref.update({ fired: true });
+        results.push({ id: reminderSnap.id, status: 'skipped', detail: 'no longer a member' });
         continue;
       }
 
       const userSnap = await db.collection('users').doc(reminder.userId).get();
       const user = userSnap.data() as UserDoc | undefined;
+      const delivered: string[] = [];
 
-      if (!user?.email || user.notifyPrefs?.email === false) {
-        results.push({ id: reminder.id, status: 'skipped', detail: 'no email or opted out' });
-        await reminderSnap.ref.update({ fired: true });
-        continue;
+      // In-app and email are independent: an in-app-only reminder used to be
+      // marked as fired without ever creating a notification.
+      if (reminder.channel?.includes('inApp') && user?.notifyPrefs?.inApp !== false) {
+        await db.collection('notifications').add({
+          userId: reminder.userId,
+          matterId: reminder.matterId,
+          suitNumber: reminder.suitNumber,
+          type: reminderSnap.id.startsWith('hr_') ? 'hearing_upcoming' : 'reminder',
+          message: reminder.message,
+          read: false,
+          createdAt: new Date().toISOString(),
+        });
+        delivered.push('inApp');
       }
 
-      await resend.emails.send({
-        from: process.env.RESEND_FROM_EMAIL || 'Legalia <onboarding@resend.dev>',
-        to: user.email,
-        subject: `Reminder: ${reminder.suitNumber}`,
-        text: reminder.message,
-      });
+      if (reminder.channel?.includes('email') && user?.email && user.notifyPrefs?.email !== false) {
+        await resend.emails.send({
+          from: process.env.RESEND_FROM_EMAIL || 'Legalia <onboarding@resend.dev>',
+          to: user.email,
+          subject: `Reminder: ${reminder.suitNumber}`,
+          text: `${reminder.message}\n\nOpen Legalia to see the matter.`,
+        });
+        delivered.push('email');
+      }
 
-      // Mirror into the in-app notification feed so the same event shows
-      // up there too, without waiting on a second write path.
-      await db.collection('notifications').add({
-        userId: reminder.userId,
-        matterId: reminder.matterId,
-        suitNumber: reminder.suitNumber,
-        type: 'hearing_upcoming',
-        message: reminder.message,
-        read: false,
-        createdAt: new Date().toISOString(),
-      });
-
-      await reminderSnap.ref.update({ fired: true });
-      results.push({ id: reminder.id, status: 'sent' });
+      await reminderSnap.ref.update({ fired: true, firedAt: new Date().toISOString() });
+      results.push({ id: reminderSnap.id, status: delivered.length ? 'sent' : 'skipped', detail: delivered.join('+') || 'user opted out of both channels' });
     } catch (err) {
-      results.push({ id: reminder.id, status: 'error', detail: err instanceof Error ? err.message : String(err) });
+      results.push({ id: reminderSnap.id, status: 'error', detail: err instanceof Error ? err.message : String(err) });
     }
   }
 

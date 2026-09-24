@@ -18,21 +18,26 @@ import {
 } from '../../services/matterService';
 import { generatePrintableBrief } from '../../utils/caseBundleGenerator';
 import { DocketStamp } from '../common/DocketStamp';
+import { daysUntil, formatDate, isOpenStatus, relativeDay, todayISO } from '../../utils/dates';
 
 interface MatterDetailProps {
   matter: Matter;
   onBack: () => void;
   onRefresh: () => void;
   onEdit?: (matter: Matter) => void;
+  onDeleted?: () => void;
 }
 
-type TabType = 'overview' | 'timeline' | 'vault' | 'people' | 'alerts';
+type TabType = 'overview' | 'timeline' | 'people';
 
-export function MatterDetail({ matter, onBack, onRefresh, onEdit }: MatterDetailProps) {
+const ROLE_LABEL: Record<string, string> = { owner: 'Owner', editor: 'Can edit', viewer: 'Can view' };
+
+export function MatterDetail({ matter, onBack, onRefresh, onEdit, onDeleted }: MatterDetailProps) {
   const { currentUser } = useAuth();
   const { showToast } = useNotifications();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [openLogForm, setOpenLogForm] = useState(false);
 
   const canEdit = useMemo(() => {
     if (!currentUser) return false;
@@ -45,16 +50,22 @@ export function MatterDetail({ matter, onBack, onRefresh, onEdit }: MatterDetail
   }, [matter, currentUser]);
 
   const handleDelete = async () => {
-    if (!window.confirm('Are you certain? This will permanently delete this matter and all associated documents.')) return;
+    if (!window.confirm(`Delete ${matter.suitNumber}? This removes the matter, its history and its reminders for everyone. It cannot be undone.`)) return;
     setIsDeleting(true);
     try {
-      await deleteMatterById(matter.id);
-      showToast('Matter deleted', 'The record has been removed.', 'success');
-      onBack();
+      await deleteMatterById(matter.id, currentUser?.uid);
+      showToast('Matter deleted', `${matter.suitNumber} has been removed.`, 'success');
+      (onDeleted || onBack)();
     } catch (error) {
       showToast('Error', 'Could not delete matter.', 'error');
       setIsDeleting(false);
     }
+  };
+
+  // Include the history in the printed brief (it used to print details only).
+  const handlePrint = async () => {
+    const timeline = await fetchTimelineEvents(matter.id).catch(() => []);
+    generatePrintableBrief(matter, timeline);
   };
 
   return (
@@ -62,8 +73,8 @@ export function MatterDetail({ matter, onBack, onRefresh, onEdit }: MatterDetail
       {/* Header */}
       <header className="flex flex-col gap-4 border-b border-[var(--border-subtle)] pb-6">
         <div className="flex items-center gap-2">
-          <button onClick={onBack} className="icon-button -ml-2">
-            <ArrowLeft className="h-5 w-5" />
+          <button onClick={onBack} className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[var(--text-muted)] hover:text-[var(--text-main)] -ml-1 mr-2">
+            <ArrowLeft className="h-4 w-4" /> Back
           </button>
           <div className="flex items-center gap-2">
             <span className="matter-number">{matter.suitNumber}</span>
@@ -77,17 +88,17 @@ export function MatterDetail({ matter, onBack, onRefresh, onEdit }: MatterDetail
               {matter.title}
             </h1>
             <p className="mt-2 text-[13px] text-[var(--text-muted)]">
-              {matter.court || 'Court not specified'} · {matter.judge || 'No judge assigned'}
+              {[matter.court, matter.judge].filter(Boolean).join(' · ') || 'Court and judge not added yet'}
             </p>
           </div>
           
           <div className="flex flex-wrap gap-2">
             {canEdit && onEdit && (
               <button onClick={() => onEdit(matter)} className="button-secondary">
-                <Pencil className="h-4 w-4" /> Edit record
+                <Pencil className="h-4 w-4" /> Edit
               </button>
             )}
-            <button onClick={() => generatePrintableBrief(matter)} className="button-secondary">
+            <button onClick={handlePrint} className="button-secondary">
               <Printer className="h-4 w-4" /> Print brief
             </button>
             {isOwner && (
@@ -100,21 +111,24 @@ export function MatterDetail({ matter, onBack, onRefresh, onEdit }: MatterDetail
 
         {/* Tabs */}
         <nav className="mt-4 flex gap-1 border-b border-[var(--border-subtle)]">
-          <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon={<Info className="h-4 w-4" />} label="Brief" />
-          <TabButton active={activeTab === 'timeline'} onClick={() => setActiveTab('timeline')} icon={<History className="h-4 w-4" />} label="Timeline" />
-          <TabButton active={activeTab === 'vault'} onClick={() => setActiveTab('vault')} icon={<FileText className="h-4 w-4" />} label="Vault" />
-          <TabButton active={activeTab === 'people'} onClick={() => setActiveTab('people')} icon={<Users className="h-4 w-4" />} label="People" />
-          <TabButton active={activeTab === 'alerts'} onClick={() => setActiveTab('alerts')} icon={<Clock className="h-4 w-4" />} label="Alerts" />
+          <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon={<Info className="h-4 w-4" />} label="Details" />
+          <TabButton active={activeTab === 'timeline'} onClick={() => setActiveTab('timeline')} icon={<History className="h-4 w-4" />} label="History" />
+          <TabButton active={activeTab === 'people'} onClick={() => setActiveTab('people')} icon={<Users className="h-4 w-4" />} label={`People (${Object.keys(matter.members).length})`} />
         </nav>
       </header>
 
       {/* Content */}
       <main className="py-2">
-        {activeTab === 'overview' && <OverviewPanel matter={matter} canEdit={canEdit} />}
-        {activeTab === 'timeline' && <TimelinePanel matter={matter} canEdit={canEdit} onRefresh={onRefresh} />}
-        {activeTab === 'vault' && <VaultPanel matter={matter} canEdit={canEdit} onRefresh={onRefresh} />}
+        {activeTab === 'overview' && (
+          <OverviewPanel
+            matter={matter}
+            canEdit={canEdit}
+            onRecord={() => { setOpenLogForm(true); setActiveTab('timeline'); }}
+            onEdit={() => onEdit?.(matter)}
+          />
+        )}
+        {activeTab === 'timeline' && <TimelinePanel matter={matter} canEdit={canEdit} onRefresh={onRefresh} startOpen={openLogForm} onFormClosed={() => setOpenLogForm(false)} />}
         {activeTab === 'people' && <PeoplePanel matter={matter} isOwner={isOwner} onRefresh={onRefresh} />}
-        {activeTab === 'alerts' && <AlertsPanel matter={matter} canEdit={canEdit} onRefresh={onRefresh} />}
       </main>
     </div>
   );
@@ -136,7 +150,9 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
   );
 }
 
-function OverviewPanel({ matter, canEdit }: { matter: Matter; canEdit: boolean }) {
+function OverviewPanel({ matter, canEdit, onRecord, onEdit }: { matter: Matter; canEdit: boolean; onRecord: () => void; onEdit: () => void }) {
+  const days = daysUntil(matter.nextHearingDate);
+  const passed = days !== null && days < 0 && isOpenStatus(matter.status);
   return (
     <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
       <div className="space-y-6">
@@ -144,21 +160,22 @@ function OverviewPanel({ matter, canEdit }: { matter: Matter; canEdit: boolean }
           <div className="panel-heading"><h2 className="section-title">Case details</h2></div>
           <div className="grid gap-6 sm:grid-cols-2">
             <InfoField label="Suit number" value={matter.suitNumber} mono />
-            <InfoField label="Court" value={matter.court || 'Not specified'} />
-            <InfoField label="Judge" value={matter.judge || 'Not assigned'} />
-            <InfoField label="Plot / Subject" value={matter.plot || 'None'} mono />
+            <InfoField label="Court" value={matter.court || 'Not added'} />
+            <InfoField label="Judge" value={matter.judge || 'Not added'} />
+            <InfoField label="Property / subject" value={matter.plot || '—'} />
           </div>
           <div className="mt-6 space-y-4">
             <div>
-              <p className="eyebrow mb-2">Claimant / Plaintiff</p>
+              <p className="mb-2 text-[13px] text-[var(--text-muted)]">Claimant / plaintiff</p>
               <div className="flex flex-wrap gap-2">
-                {matter.plaintiffs.map(p => <span key={p} className="badge badge-green">{p}</span>)}
+                {matter.plaintiffs.map(p => <span key={p} className="badge badge-neutral">{p}</span>)}
               </div>
             </div>
             <div>
-              <p className="eyebrow mb-2">Respondent / Defendant</p>
+              <p className="mb-2 text-[13px] text-[var(--text-muted)]">Respondent / defendant</p>
               <div className="flex flex-wrap gap-2">
-                {matter.defendants.map(d => <span key={d} className="badge badge-red">{d}</span>)}
+                {matter.defendants.length === 0 && <span className="text-[14px] text-[var(--text-muted)]">Not added yet</span>}
+                {matter.defendants.map(d => <span key={d} className="badge badge-neutral">{d}</span>)}
               </div>
             </div>
           </div>
@@ -166,7 +183,7 @@ function OverviewPanel({ matter, canEdit }: { matter: Matter; canEdit: boolean }
 
         {matter.summaryNotes && (
           <section className="panel-card">
-            <div className="panel-heading"><h2 className="section-title">Summary notes</h2></div>
+            <div className="panel-heading"><h2 className="section-title">Notes</h2></div>
             <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--text-main)]">
               {matter.summaryNotes}
             </p>
@@ -175,32 +192,38 @@ function OverviewPanel({ matter, canEdit }: { matter: Matter; canEdit: boolean }
       </div>
 
       <div className="space-y-6">
-        <section className="panel-card bg-[var(--gold-soft)]/20 border-[var(--gold)]/30">
-          <div className="panel-heading"><h2 className="section-title text-[var(--gold)]">Next appearance</h2></div>
+        <section className={`panel-card ${passed ? '!border-[var(--caution-amber)]' : ''}`}>
+          <div className="panel-heading"><h2 className="section-title">Next hearing</h2></div>
           {matter.nextHearingDate ? (
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div className="flex items-center gap-3 text-[var(--text-main)]">
                 <Calendar className="h-5 w-5 text-[var(--gold)]" />
-                <span className="text-[18px] font-semibold">{new Date(matter.nextHearingDate).toLocaleDateString(undefined, { dateStyle: 'long' })}</span>
+                <span className="text-[18px] font-semibold">{formatDate(matter.nextHearingDate, 'long')}</span>
               </div>
-              <div className="flex items-center gap-3 text-[var(--text-muted)]">
-                <Clock className="h-5 w-5" />
-                <span className="text-[14px]">{matter.purpose || 'Appearance'}</span>
-              </div>
+              <p className="pl-8 text-[14px] text-[var(--text-muted)]">
+                {matter.purpose || 'Hearing'} · {relativeDay(matter.nextHearingDate)}
+              </p>
+              {passed ? (
+                <div className="mt-3 rounded-lg border border-[rgba(183,120,36,.3)] bg-[rgba(183,120,36,.08)] p-3 text-[14px] text-[var(--text-main)]">
+                  This date has passed. Record what happened and set the next date so reminders keep working.
+                  {canEdit && <button onClick={onRecord} className="button-primary mt-3 w-full">Record what happened</button>}
+                </div>
+              ) : (
+                <p className="pl-8 text-[13px] text-[var(--text-muted)]">Everyone on this matter gets a reminder the day before.</p>
+              )}
             </div>
           ) : (
-            <p className="text-[13px] text-[var(--text-muted)] italic">No upcoming hearing scheduled.</p>
+            <div>
+              <p className="text-[14px] text-[var(--text-muted)]">No hearing date set. Add one to get a reminder the day before.</p>
+              {canEdit && <button onClick={onEdit} className="button-secondary mt-3">Add hearing date</button>}
+            </div>
           )}
         </section>
 
         <section className="panel-card">
-          <div className="panel-heading"><h2 className="section-title">Matter access</h2></div>
-          <div className="flex items-center gap-3 rounded-lg bg-[var(--bg-base)] p-3">
-            <ShieldCheck className="h-5 w-5 text-[var(--gold)]" />
-            <div>
-              <p className="text-[12px] font-semibold text-[var(--text-main)]">Private workspace</p>
-              <p className="text-[11px] text-[var(--text-muted)]">Only members can view this record.</p>
-            </div>
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="h-5 w-5 shrink-0 text-[var(--gold)]" />
+            <p className="text-[14px] text-[var(--text-muted)]">Private — only people on the People tab can see this matter.</p>
           </div>
         </section>
       </div>
@@ -211,8 +234,8 @@ function OverviewPanel({ matter, canEdit }: { matter: Matter; canEdit: boolean }
 function InfoField({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div>
-      <p className="eyebrow mb-1">{label}</p>
-      <p className={`text-[14px] font-medium text-[var(--text-main)] ${mono ? 'font-mono' : ''}`}>{value}</p>
+      <p className="mb-1 text-[13px] text-[var(--text-muted)]">{label}</p>
+      <p className={`text-[15px] font-medium text-[var(--text-main)] ${mono ? 'font-mono' : ''}`}>{value}</p>
     </div>
   );
 }
@@ -226,7 +249,7 @@ const EVENT_TYPE_META: Record<TimelineEventType, { label: string; icon: ReactNod
 };
 
 const emptyEventForm = {
-  date: new Date().toISOString().slice(0, 10),
+  date: todayISO(),
   type: 'hearing' as TimelineEventType,
   summary: '',
   judge: '',
@@ -236,15 +259,22 @@ const emptyEventForm = {
   nextPurpose: '',
 };
 
-function TimelinePanel({ matter, canEdit, onRefresh }: { matter: Matter; canEdit: boolean; onRefresh: () => void }) {
+function TimelinePanel({ matter, canEdit, onRefresh, startOpen = false, onFormClosed }: { matter: Matter; canEdit: boolean; onRefresh: () => void; startOpen?: boolean; onFormClosed?: () => void }) {
   const { currentUser } = useAuth();
   const { showToast } = useNotifications();
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowFormState] = useState(startOpen && canEdit);
+  const setShowForm = (value: boolean | ((v: boolean) => boolean)) => {
+    setShowFormState((current) => {
+      const next = typeof value === 'function' ? value(current) : value;
+      if (!next) onFormClosed?.();
+      return next;
+    });
+  };
   const [saving, setSaving] = useState(false);
   const [busyEventId, setBusyEventId] = useState<string | null>(null);
-  const [form, setForm] = useState({ ...emptyEventForm, judge: matter.judge || '' });
+  const [form, setForm] = useState({ ...emptyEventForm, date: todayISO(), judge: matter.judge || '' });
 
   const loadEvents = () => {
     setLoading(true);
@@ -283,18 +313,18 @@ function TimelinePanel({ matter, canEdit, onRefresh }: { matter: Matter; canEdit
         }
       );
       showToast(
-        'Sitting logged',
+        'Saved',
         form.nextHearingDate
-          ? `Recorded, and the next appearance is now ${new Date(form.nextHearingDate).toLocaleDateString(undefined, { dateStyle: 'medium' })}.`
-          : 'Recorded. No next appearance is scheduled.',
+          ? `Next hearing is now ${formatDate(form.nextHearingDate)}. Reminders updated.`
+          : 'Saved. No next hearing date is set.',
         'success'
       );
-      setForm({ ...emptyEventForm, judge: matter.judge || '' });
+      setForm({ ...emptyEventForm, date: todayISO(), judge: matter.judge || '' });
       setShowForm(false);
       loadEvents();
       onRefresh();
     } catch (err) {
-      showToast('Error', 'Could not log the sitting.', 'error');
+      showToast('Could not save', 'Please check your connection and try again.', 'error');
     } finally {
       setSaving(false);
     }
@@ -317,10 +347,10 @@ function TimelinePanel({ matter, canEdit, onRefresh }: { matter: Matter; canEdit
   return (
     <div className="panel-card">
       <div className="panel-heading">
-        <h2 className="section-title">Procedural history</h2>
+        <h2 className="section-title">History</h2>
         {canEdit && (
           <button onClick={() => setShowForm((value) => !value)} className="button-secondary text-[12px]">
-            <Plus className="h-3.5 w-3.5" /> {showForm ? 'Cancel' : 'Log a sitting'}
+            <Plus className="h-3.5 w-3.5" /> {showForm ? 'Cancel' : 'Record what happened'}
           </button>
         )}
       </div>
@@ -328,48 +358,48 @@ function TimelinePanel({ matter, canEdit, onRefresh }: { matter: Matter; canEdit
       {showForm && (
         <form onSubmit={handleAdd} className="mb-5 space-y-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)] p-4">
           <div>
-            <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">What happened today</p>
+            <p className="mb-3 text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">What happened</p>
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block text-[11px] font-medium text-[var(--text-muted)]">Date
+              <label className="block text-[12px] font-medium text-[var(--text-muted)]">Date
                 <input type="date" required value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} className="field-control mt-1.5 w-full" />
               </label>
-              <label className="block text-[11px] font-medium text-[var(--text-muted)]">Event type
+              <label className="block text-[12px] font-medium text-[var(--text-muted)]">Type
                 <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as TimelineEventType }))} className="field-control mt-1.5 w-full">
                   {Object.entries(EVENT_TYPE_META).map(([value, meta]) => <option key={value} value={value}>{meta.label}</option>)}
                 </select>
               </label>
             </div>
-            <label className="mt-3 block text-[11px] font-medium text-[var(--text-muted)]">Summary
+            <label className="mt-3 block text-[12px] font-medium text-[var(--text-muted)]">Summary
               <textarea required rows={2} value={form.summary} onChange={(e) => setForm((f) => ({ ...f, summary: e.target.value }))} placeholder={EVENT_TYPE_META[form.type]?.summaryPlaceholder} className="field-control mt-1.5 w-full resize-none" />
             </label>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
-              <label className="block text-[11px] font-medium text-[var(--text-muted)]">Judge
+              <label className="block text-[12px] font-medium text-[var(--text-muted)]">Judge
                 <input value={form.judge} onChange={(e) => setForm((f) => ({ ...f, judge: e.target.value }))} placeholder="Optional" className="field-control mt-1.5 w-full" />
               </label>
-              <label className="block text-[11px] font-medium text-[var(--text-muted)]">Purpose
+              <label className="block text-[12px] font-medium text-[var(--text-muted)]">Purpose
                 <input value={form.purpose} onChange={(e) => setForm((f) => ({ ...f, purpose: e.target.value }))} placeholder="e.g. Mention" className="field-control mt-1.5 w-full" />
               </label>
-              <label className="block text-[11px] font-medium text-[var(--text-muted)]">Appearances
+              <label className="block text-[12px] font-medium text-[var(--text-muted)]">Lawyers appearing
                 <input value={form.appearances} onChange={(e) => setForm((f) => ({ ...f, appearances: e.target.value }))} placeholder="Optional" className="field-control mt-1.5 w-full" />
               </label>
             </div>
           </div>
 
           <div className="border-t border-[var(--border-subtle)] pt-4">
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Next appearance</p>
-            <p className="mb-3 text-[11px] text-[var(--text-muted)]">Leave the date blank if none was given (e.g. judgment reserved, adjourned sine die) — the matter's next-appearance field will be cleared and no reminder will be set.</p>
+            <p className="mb-1 text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Next hearing</p>
+            <p className="mb-3 text-[12px] text-[var(--text-muted)]">Leave blank if no new date was given (e.g. judgment reserved). No reminder will be set.</p>
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block text-[11px] font-medium text-[var(--text-muted)]">Next hearing date
+              <label className="block text-[12px] font-medium text-[var(--text-muted)]">Next hearing date
                 <input type="date" value={form.nextHearingDate} onChange={(e) => setForm((f) => ({ ...f, nextHearingDate: e.target.value }))} className="field-control mt-1.5 w-full" />
               </label>
-              <label className="block text-[11px] font-medium text-[var(--text-muted)]">Purpose of next date
+              <label className="block text-[12px] font-medium text-[var(--text-muted)]">Next hearing is for
                 <input value={form.nextPurpose} onChange={(e) => setForm((f) => ({ ...f, nextPurpose: e.target.value }))} placeholder="e.g. Continuation of hearing" disabled={!form.nextHearingDate} className="field-control mt-1.5 w-full disabled:opacity-50" />
               </label>
             </div>
           </div>
 
           <div className="flex justify-end">
-            <button type="submit" disabled={saving} className="button-primary text-[12px]">{saving ? 'Saving…' : 'Save & update matter'}</button>
+            <button type="submit" disabled={saving} className="button-primary text-[12px]">{saving ? 'Saving…' : 'Save'}</button>
           </div>
         </form>
       )}
@@ -379,7 +409,7 @@ function TimelinePanel({ matter, canEdit, onRefresh }: { matter: Matter; canEdit
       ) : events.length === 0 ? (
         <div className="py-8 text-center">
           <History className="mx-auto h-12 w-12 text-[var(--border-subtle)]" />
-          <p className="mt-4 text-[13px] text-[var(--text-muted)]">No procedural history recorded yet.</p>
+          <p className="mt-4 text-[13px] text-[var(--text-muted)]">Nothing recorded yet. After each hearing, use “Record what happened” to keep a history and set the next date.</p>
         </div>
       ) : (
         <ol className="space-y-0">
@@ -392,18 +422,18 @@ function TimelinePanel({ matter, canEdit, onRefresh }: { matter: Matter; canEdit
               <div className="min-w-0 flex-1 pt-0.5">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--text-muted)]">
-                      {new Date(item.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })} · {EVENT_TYPE_META[item.type]?.label || item.type}
+                    <p className="font-mono text-[12px] uppercase tracking-[0.1em] text-[var(--text-muted)]">
+                      {formatDate(item.date)} · {EVENT_TYPE_META[item.type]?.label || item.type}
                     </p>
                     <p className="mt-1 text-[13px] leading-5 text-[var(--text-main)]">{item.summary}</p>
                     {(item.judge || item.purpose || item.appearances) && (
-                      <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                      <p className="mt-1 text-[12px] text-[var(--text-muted)]">
                         {[item.judge, item.purpose, item.appearances].filter(Boolean).join(' · ')}
                       </p>
                     )}
                   </div>
                   {canEdit && (
-                    <button onClick={() => handleDelete(item.id)} disabled={busyEventId === item.id} className="icon-button danger shrink-0 opacity-0 transition group-hover:opacity-100" aria-label="Delete entry">
+                    <button onClick={() => handleDelete(item.id)} disabled={busyEventId === item.id} className="icon-button danger shrink-0 opacity-60 transition hover:opacity-100" aria-label="Delete entry">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   )}
@@ -413,20 +443,6 @@ function TimelinePanel({ matter, canEdit, onRefresh }: { matter: Matter; canEdit
           ))}
         </ol>
       )}
-    </div>
-  );
-}
-
-function VaultPanel({ matter, canEdit, onRefresh }: { matter: Matter; canEdit: boolean; onRefresh: () => void }) {
-  return (
-    <div className="panel-card">
-      <div className="panel-heading">
-        <h2 className="section-title">Document vault</h2>
-      </div>
-      <div className="py-8 text-center">
-        <FileText className="mx-auto h-12 w-12 text-[var(--border-subtle)]" />
-        <p className="mt-4 text-[13px] text-[var(--text-muted)]">Document storage is coming soon.</p>
-      </div>
     </div>
   );
 }
@@ -480,7 +496,7 @@ function PeoplePanel({ matter, isOwner, onRefresh }: { matter: Matter; isOwner: 
       if (isOwner) fetchMatterInvites(matter.id).then(setInvites).catch(() => {});
       // The invite exists at this point; a clipboard refusal must not read as a failure.
       if (await copyToClipboard(link)) {
-        showToast('Link copied', `Invite link (${invitePermission}) copied to clipboard.`, 'success');
+        showToast('Link copied', `Paste it into WhatsApp or email. It gives “${ROLE_LABEL[invitePermission]}” access.`, 'success');
       } else {
         showToast('Invite created', 'Copy the link from Pending invites below.', 'success');
       }
@@ -493,7 +509,7 @@ function PeoplePanel({ matter, isOwner, onRefresh }: { matter: Matter; isOwner: 
 
   const handleCopyInvite = async (invite: MatterInvite) => {
     if (await copyToClipboard(buildInviteLink(invite))) {
-      showToast('Link copied', `Invite link (${invite.permission}) copied to clipboard.`, 'success');
+      showToast('Link copied', 'Paste it into WhatsApp or email.', 'success');
     } else {
       showToast('Could not copy', 'Select the link in the box and copy it manually.', 'error');
     }
@@ -531,7 +547,7 @@ function PeoplePanel({ matter, isOwner, onRefresh }: { matter: Matter; isOwner: 
     try {
       await revokeInvite(matter.id, inviteId);
       setInvites((current) => current.filter((invite) => invite.id !== inviteId));
-      showToast('Invite revoked', 'That invite link no longer works.', 'success');
+      showToast('Link cancelled', 'That invite link no longer works.', 'success');
     } catch (err) {
       showToast('Error', 'Could not revoke invite.', 'error');
     } finally {
@@ -543,7 +559,10 @@ function PeoplePanel({ matter, isOwner, onRefresh }: { matter: Matter; isOwner: 
     <div className="space-y-4">
       <div className="panel-card">
         <div className="panel-heading">
-          <h2 className="section-title">Collaborators</h2>
+          <div>
+            <h2 className="section-title">People with access</h2>
+            {isOwner && <p className="mt-1 max-w-md text-[13px] text-[var(--text-muted)]">Create a link and send it by WhatsApp or email. Whoever opens it and signs in joins this matter.</p>}
+          </div>
           {isOwner && (
             <div className="flex items-center gap-2">
               <select
@@ -556,7 +575,7 @@ function PeoplePanel({ matter, isOwner, onRefresh }: { matter: Matter; isOwner: 
                 <option value="viewer">Can view</option>
               </select>
               <button onClick={handleInvite} disabled={inviteLoading} className="button-secondary text-[12px]">
-                <Link2 className="h-3.5 w-3.5" /> {inviteLoading ? 'Generating…' : 'Invite link'}
+                <Link2 className="h-3.5 w-3.5" /> {inviteLoading ? 'Creating…' : 'Create invite link'}
               </button>
             </div>
           )}
@@ -576,7 +595,7 @@ function PeoplePanel({ matter, isOwner, onRefresh }: { matter: Matter; isOwner: 
                     <p className="truncate text-[13px] font-medium text-[var(--text-main)]">
                       {isSelf ? matter.ownerName || 'Owner' : profile?.name || 'Loading…'}
                     </p>
-                    <p className="truncate text-[11px] text-[var(--text-muted)]">{profile?.email || ''}</p>
+                    <p className="truncate text-[12px] text-[var(--text-muted)]">{profile?.email || ''}</p>
                   </div>
                 </div>
 
@@ -586,7 +605,7 @@ function PeoplePanel({ matter, isOwner, onRefresh }: { matter: Matter; isOwner: 
                       value={role}
                       disabled={busyUid === uid}
                       onChange={(event) => handlePermissionChange(uid, event.target.value as Exclude<MatterPermission, 'owner'>)}
-                      className="field-control text-[11px] !py-1"
+                      className="field-control text-[12px] !py-1"
                     >
                       <option value="editor">Can edit</option>
                       <option value="viewer">Can view</option>
@@ -602,7 +621,7 @@ function PeoplePanel({ matter, isOwner, onRefresh }: { matter: Matter; isOwner: 
                     </button>
                   </div>
                 ) : (
-                  <p className="shrink-0 text-[11px] capitalize text-[var(--text-muted)]">{role}</p>
+                  <p className="shrink-0 text-[13px] text-[var(--text-muted)]">{ROLE_LABEL[role] || role}</p>
                 )}
               </div>
             );
@@ -623,27 +642,27 @@ function PeoplePanel({ matter, isOwner, onRefresh }: { matter: Matter; isOwner: 
                     <Mail className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-medium text-[var(--text-main)]">Unclaimed invite link</p>
-                    <p className="text-[11px] capitalize text-[var(--text-muted)]">{invite.permission} access · created {new Date(invite.createdAt).toLocaleDateString()}</p>
+                    <p className="truncate text-[14px] font-medium text-[var(--text-main)]">Invite link — not used yet</p>
+                    <p className="text-[12px] text-[var(--text-muted)]">{ROLE_LABEL[invite.permission]} · created {new Date(invite.createdAt).toLocaleDateString()}</p>
                     <input
                       readOnly
                       value={buildInviteLink(invite)}
                       onFocus={(event) => event.target.select()}
-                      className="field-control mt-2 w-full !py-1 font-mono text-[10px]"
+                      className="field-control mt-2 w-full !py-1 font-mono text-[12px]"
                       aria-label="Invite link"
                     />
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <button onClick={() => handleCopyInvite(invite)} className="button-secondary text-[11px]">
+                  <button onClick={() => handleCopyInvite(invite)} className="button-secondary text-[12px]">
                     <Copy className="h-3.5 w-3.5" /> Copy link
                   </button>
                   <button
                     onClick={() => handleRevoke(invite.id)}
                     disabled={busyInviteId === invite.id}
-                    className="button-secondary text-[11px]"
+                    className="button-secondary text-[12px]"
                   >
-                    <Link2 className="h-3.5 w-3.5" /> Revoke
+                    <X className="h-3.5 w-3.5" /> Cancel link
                   </button>
                 </div>
               </div>
@@ -651,20 +670,6 @@ function PeoplePanel({ matter, isOwner, onRefresh }: { matter: Matter; isOwner: 
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function AlertsPanel({ matter, canEdit, onRefresh }: { matter: Matter; canEdit: boolean; onRefresh: () => void }) {
-  return (
-    <div className="panel-card">
-      <div className="panel-heading">
-        <h2 className="section-title">Reminders & alerts</h2>
-      </div>
-      <div className="py-8 text-center">
-        <Clock className="mx-auto h-12 w-12 text-[var(--border-subtle)]" />
-        <p className="mt-4 text-[13px] text-[var(--text-muted)]">Set specific alerts for this matter here.</p>
-      </div>
     </div>
   );
 }

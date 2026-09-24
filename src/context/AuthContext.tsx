@@ -76,7 +76,7 @@ async function ensureUserProfile(user: FirebaseUser, displayNameOverride?: strin
     return snap.data() as UserProfile;
   }
 
-  const name = displayNameOverride || user.displayName || user.email?.split('@')[0] || 'Counsel';
+  const name = displayNameOverride || user.displayName || user.email?.split('@')[0] || 'New user';
 
   const newProfile: UserProfile = {
     uid: user.uid,
@@ -176,14 +176,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateUserProfile = async (fields: Partial<UserProfile>) => {
     if (!currentUser || !firebaseUser) return;
-    const updated = { ...currentUser, ...fields };
-    setCurrentUser(updated);
-
-    try {
-      await setDoc(doc(db, 'users', firebaseUser.uid), fields, { merge: true });
-    } catch (err) {
-      console.warn('Firestore user update error:', err);
-    }
+    // Save first, then update local state, so the Settings page only says
+    // "saved" when it really was.
+    await setDoc(doc(db, 'users', firebaseUser.uid), fields, { merge: true });
+    setCurrentUser({ ...currentUser, ...fields });
   };
 
   return (

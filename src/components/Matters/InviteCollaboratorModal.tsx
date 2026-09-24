@@ -1,131 +1,98 @@
-import React, { useEffect, useState } from 'react';
-import { UserPlus, X } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import React, { useState } from 'react';
+import { Check, Copy, Link2, X } from 'lucide-react';
 import { useNotifications } from '../../context/NotificationContext';
-import { fetchAllMatters } from '../../services/matterService';
-import { sendCollaboratorInvite } from '../../services/collabService';
+import { generateInviteLink } from '../../services/matterService';
 import type { Matter } from '../../types';
 
-type Access = 'none' | 'viewer' | 'editor';
-
 interface InviteCollaboratorModalProps {
+  /** Matters the signed-in user owns (only owners can invite). */
+  matters: Matter[];
   onClose: () => void;
   onSent: () => void;
 }
 
-// Invite an existing Legalia user by email and choose, matter by matter, what
-// they may do. They get the invitation in their Notifications and accept or
-// decline it there. Only matters the signed-in user owns can be shared.
-export const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ onClose, onSent }) => {
-  const { currentUser } = useAuth();
+// One way to invite, used everywhere: a link for one matter. It works for
+// people who don't have an account yet - they sign up from the link and join.
+export const InviteCollaboratorModal: React.FC<InviteCollaboratorModalProps> = ({ matters, onClose, onSent }) => {
   const { showToast } = useNotifications();
-  const [email, setEmail] = useState('');
-  const [matters, setMatters] = useState<Matter[]>([]);
-  const [access, setAccess] = useState<Record<string, Access>>({});
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState('');
+  const [matterId, setMatterId] = useState(matters[0]?.id || '');
+  const [permission, setPermission] = useState<'editor' | 'viewer'>('viewer');
+  const [link, setLink] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    if (!currentUser) return;
-    fetchAllMatters(currentUser.uid)
-      .then((list) => setMatters(list.filter((m) => m.ownerId === currentUser.uid)))
-      .catch(() => setError('Could not load your matters.'))
-      .finally(() => setLoading(false));
-  }, [currentUser]);
-
-  const ordered = matters;
-  const chosen = Object.entries(access).filter(([, level]) => level !== 'none');
-
-  const submit = async () => {
-    setError('');
-    if (!email.trim()) return setError('Enter the invitee’s email address.');
-    if (chosen.length === 0) return setError('Choose at least one matter to share.');
-    setSending(true);
+  const create = async () => {
+    if (!matterId) return;
+    setBusy(true);
     try {
-      await sendCollaboratorInvite(
-        email.trim(),
-        chosen.map(([matterId, level]) => ({ matterId, permission: level as 'viewer' | 'editor' }))
-      );
-      showToast('Invitation sent', 'They will see it in their Notifications and can accept or decline.', 'success');
+      const url = await generateInviteLink(matterId, permission);
+      setLink(url);
       onSent();
-      onClose();
-    } catch (err: any) {
-      setError(err?.message || 'Could not send the invitation.');
+      try { await navigator.clipboard.writeText(url); setCopied(true); } catch { /* shown below to copy by hand */ }
+    } catch {
+      showToast('Could not create link', 'Please try again.', 'error');
     } finally {
-      setSending(false);
+      setBusy(false);
     }
   };
 
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(link); setCopied(true); } catch { showToast('Copy it manually', 'Select the link and copy it.', 'warning'); }
+  };
+
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="invite-collab-title">
-      <div className="modal-shell max-w-xl">
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="invite-title">
+      <div className="modal-shell max-w-lg">
         <div className="modal-header">
           <div className="flex items-center gap-3">
-            <span className="modal-icon"><UserPlus className="h-5 w-5" /></span>
-            <div>
-              <p className="eyebrow">Matter access</p>
-              <h2 id="invite-collab-title" className="font-serif-title text-[18px] font-semibold">Invite a collaborator</h2>
-            </div>
+            <span className="modal-icon"><Link2 className="h-5 w-5" /></span>
+            <h2 id="invite-title" className="font-serif-title text-[19px] font-semibold">Invite someone to a matter</h2>
           </div>
           <button onClick={onClose} className="icon-button" aria-label="Close"><X className="h-5 w-5" /></button>
         </div>
 
-        <div className="modal-body">
-          <label className="block text-[11px] font-medium text-[var(--text-muted)]">
-            Their Legalia account email
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="colleague@example.com"
-              className="field-control mt-1.5 w-full"
-              autoFocus
-            />
-          </label>
-          <p className="mt-1.5 text-[11px] text-[var(--text-muted)]">
-            They must already have registered. The invitation appears in their Notifications.
-          </p>
-
-          <p className="mb-2 mt-5 text-[11px] font-medium text-[var(--text-muted)]">Matters they can access</p>
-          <div className="max-h-[280px] divide-y divide-[var(--border-subtle)] overflow-y-auto rounded-xl border border-[var(--border-subtle)]">
-            {loading ? (
-              <p className="p-4 text-[12px] text-[var(--text-muted)]">Loading your matters…</p>
-            ) : ordered.length === 0 ? (
-              <p className="p-4 text-[12px] text-[var(--text-muted)]">You do not own any matters to share yet.</p>
-            ) : (
-              ordered.map((m) => (
-                <div key={m.id} className="flex items-center justify-between gap-3 p-3">
-                  <div className="min-w-0">
-                    <p className="font-mono text-[11px] text-[var(--gold)]">{m.suitNumber}</p>
-                    <p className="truncate text-[12px] text-[var(--text-main)]">{m.title}</p>
-                  </div>
-                  <select
-                    value={access[m.id] || 'none'}
-                    onChange={(e) => setAccess((cur) => ({ ...cur, [m.id]: e.target.value as Access }))}
-                    className="field-control shrink-0 text-[11px] !py-1"
-                    aria-label={`Access to ${m.suitNumber}`}
-                  >
-                    <option value="none">No access</option>
-                    <option value="viewer">Can view</option>
-                    <option value="editor">Can edit</option>
-                  </select>
+        <div className="modal-body space-y-4">
+          {matters.length === 0 ? (
+            <p className="text-[14px] text-[var(--text-muted)]">You need to own at least one matter before you can invite anyone. Add a matter first.</p>
+          ) : !link ? (
+            <>
+              <p className="text-[14px] text-[var(--text-muted)]">
+                We’ll create a link. Send it by WhatsApp or email — whoever opens it and signs in (or signs up) joins the matter.
+              </p>
+              <label className="block text-[13px] font-medium">Matter
+                <select value={matterId} onChange={(e) => setMatterId(e.target.value)} className="field-control mt-1.5 w-full">
+                  {matters.map((m) => <option key={m.id} value={m.id}>{m.suitNumber} — {m.title.slice(0, 45)}</option>)}
+                </select>
+              </label>
+              <fieldset>
+                <legend className="text-[13px] font-medium">What can they do?</legend>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {([['viewer', 'View only', 'See details and history'], ['editor', 'View and edit', 'Update dates and record hearings']] as const).map(([id, label, hint]) => (
+                    <button key={id} type="button" onClick={() => setPermission(id)} aria-pressed={permission === id}
+                      className={`rounded-xl border p-3 text-left transition ${permission === id ? 'border-[var(--gold)] bg-[var(--gold-soft)]' : 'border-[var(--border-subtle)] hover:bg-[var(--bg-surface-hover)]'}`}>
+                      <span className="block text-[14px] font-semibold">{label}</span>
+                      <span className="block text-[12px] text-[var(--text-muted)]">{hint}</span>
+                    </button>
+                  ))}
                 </div>
-              ))
-            )}
+              </fieldset>
+            </>
+          ) : (
+            <>
+              <p className="flex items-center gap-2 text-[14px] font-semibold text-[var(--verdict-green)]">
+                <Check className="h-4 w-4" /> Link created{copied ? ' and copied' : ''}
+              </p>
+              <input readOnly value={link} onFocus={(e) => e.target.select()} className="field-control w-full font-mono text-[12px]" aria-label="Invite link" />
+              <p className="text-[13px] text-[var(--text-muted)]">Paste it into WhatsApp or email. You can cancel it any time from the matter’s People tab.</p>
+            </>
+          )}
+
+          <div className="modal-footer">
+            <button onClick={onClose} className="button-secondary">{link ? 'Done' : 'Cancel'}</button>
+            {matters.length > 0 && (link
+              ? <button onClick={copy} className="button-primary"><Copy className="h-4 w-4" /> Copy again</button>
+              : <button onClick={create} disabled={busy} className="button-primary">{busy ? 'Creating…' : 'Create link'}</button>)}
           </div>
-
-          {error && <p className="mt-4 text-[12px] text-[var(--alert-red)]">{error}</p>}
-        </div>
-
-        <div className="modal-footer">
-          <span className="mr-auto text-[11px] text-[var(--text-muted)]">
-            {chosen.length} matter{chosen.length === 1 ? '' : 's'} selected
-          </span>
-          <button onClick={onClose} className="button-secondary">Cancel</button>
-          <button onClick={submit} disabled={sending} className="button-primary">
-            {sending ? 'Sending…' : 'Send invitation'}
-          </button>
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Users, UserPlus, X } from 'lucide-react';
+import { UserPlus, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { Matter, MatterPermission } from '../../types';
@@ -13,11 +13,12 @@ interface CollaboratorsPageProps {
   matters: Matter[];
   /** Reload the matter list after access changes. */
   onRefresh: () => void;
+  onSelectMatter?: (matter: Matter) => void;
 }
 
 // One place to invite people and manage who can open which of your matters.
 // Access is per matter; this page just groups it by person.
-export const CollaboratorsPage: React.FC<CollaboratorsPageProps> = ({ matters, onRefresh }) => {
+export const CollaboratorsPage: React.FC<CollaboratorsPageProps> = ({ matters, onRefresh, onSelectMatter }) => {
   const { currentUser } = useAuth();
   const { showToast } = useNotifications();
   const [showInvite, setShowInvite] = useState(false);
@@ -77,35 +78,32 @@ export const CollaboratorsPage: React.FC<CollaboratorsPageProps> = ({ matters, o
 
   return (
     <div className="page-stack">
-      <section className="panel-card">
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow"><Users className="h-3.5 w-3.5" /> Matter access</p>
-            <h1 className="section-title">Collaborators</h1>
-            <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-              Invite colleagues and choose which of your matters they can open, and whether they can edit.
-            </p>
-          </div>
-          <button onClick={() => setShowInvite(true)} className="button-primary">
-            <UserPlus className="h-4 w-4" /> Invite collaborator
-          </button>
+      <section className="page-intro">
+        <div>
+          <h1 className="page-title">People</h1>
+          <p className="page-subtitle">
+            Everyone who can see your matters. Invite your lawyer, client or colleague with a link — you choose if they can edit or only view.
+          </p>
         </div>
+        <button onClick={() => setShowInvite(true)} className="button-primary">
+          <UserPlus className="h-4 w-4" /> Invite someone
+        </button>
       </section>
 
       {pending.length > 0 && (
         <section className="panel-card">
-          <div className="panel-heading"><h2 className="section-title">Pending invitations</h2></div>
+          <div className="panel-heading"><h2 className="section-title">Older email invitations (awaiting reply)</h2></div>
           <div className="divide-y divide-[var(--border-subtle)]">
             {pending.map((invite) => (
               <div key={invite.id} className="flex items-center justify-between gap-3 py-3">
                 <div className="min-w-0">
                   <p className="truncate text-[13px] font-medium text-[var(--text-main)]">{invite.email}</p>
-                  <p className="text-[11px] text-[var(--text-muted)]">
+                  <p className="text-[12px] text-[var(--text-muted)]">
                     {invite.grants.length} matter{invite.grants.length === 1 ? '' : 's'} offered ·{' '}
                     {invite.grants.map((g) => g.suitNumber).join(', ')} · sent {new Date(invite.createdAt).toLocaleDateString()} · awaiting response
                   </p>
                 </div>
-                <button onClick={() => cancelInvite(invite.id)} disabled={busy === `inv_${invite.id}`} className="button-secondary text-[11px]">
+                <button onClick={() => cancelInvite(invite.id)} disabled={busy === `inv_${invite.id}`} className="button-secondary text-[12px]">
                   Cancel
                 </button>
               </div>
@@ -118,7 +116,7 @@ export const CollaboratorsPage: React.FC<CollaboratorsPageProps> = ({ matters, o
         <div className="panel-heading"><h2 className="section-title">People with access</h2></div>
         {people.length === 0 ? (
           <p className="py-6 text-center text-[13px] text-[var(--text-muted)]">
-            You have not shared any matters yet. Invite a collaborator to get started.
+            You haven’t shared any matters yet. Click “Invite someone” to create a link.
           </p>
         ) : (
           <div className="divide-y divide-[var(--border-subtle)]">
@@ -134,10 +132,10 @@ export const CollaboratorsPage: React.FC<CollaboratorsPageProps> = ({ matters, o
                       </div>
                       <div className="min-w-0">
                         <p className="truncate text-[13px] font-medium text-[var(--text-main)]">{name}</p>
-                        <p className="truncate text-[11px] text-[var(--text-muted)]">{profile?.email || ''}</p>
+                        <p className="truncate text-[12px] text-[var(--text-muted)]">{profile?.email || ''}</p>
                       </div>
                     </div>
-                    <button onClick={() => removeFromAll(uid, name, list)} disabled={busy === `all_${uid}`} className="button-secondary text-[11px]">
+                    <button onClick={() => removeFromAll(uid, name, list)} disabled={busy === `all_${uid}`} className="button-secondary text-[12px]">
                       Remove from all
                     </button>
                   </div>
@@ -146,15 +144,17 @@ export const CollaboratorsPage: React.FC<CollaboratorsPageProps> = ({ matters, o
                     {list.map(({ matter, permission }) => (
                       <li key={matter.id} className="flex items-center justify-between gap-3">
                         <span className="min-w-0 truncate text-[12px] text-[var(--text-main)]">
-                          <span className="font-mono text-[11px] text-[var(--gold)]">{matter.suitNumber}</span>
-                          <span className="ml-2 text-[var(--text-muted)]">{matter.title}</span>
+                          <button onClick={() => onSelectMatter?.(matter)} className="hover:underline">
+                            <span className="font-mono text-[12px] text-[var(--gold)]">{matter.suitNumber}</span>
+                            <span className="ml-2 text-[var(--text-muted)]">{matter.title}</span>
+                          </button>
                         </span>
                         <span className="flex shrink-0 items-center gap-1.5">
                           <select
                             value={permission}
                             disabled={busy === `${matter.id}_${uid}`}
                             onChange={(e) => run(`${matter.id}_${uid}`, () => setMemberPermission(matter, uid, e.target.value as SharedPermission), 'Access updated.')}
-                            className="field-control text-[11px] !py-1"
+                            className="field-control text-[12px] !py-1"
                             aria-label={`Access to ${matter.suitNumber}`}
                           >
                             <option value="editor">Can edit</option>
@@ -184,7 +184,7 @@ export const CollaboratorsPage: React.FC<CollaboratorsPageProps> = ({ matters, o
         )}
       </section>
 
-      {showInvite && <InviteCollaboratorModal onClose={() => setShowInvite(false)} onSent={loadPending} />}
+      {showInvite && <InviteCollaboratorModal matters={owned} onClose={() => setShowInvite(false)} onSent={() => {}} />}
     </div>
   );
 };

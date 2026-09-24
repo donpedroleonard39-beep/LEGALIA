@@ -17,7 +17,7 @@ import { CollaboratorsPage } from './components/Collaborators/CollaboratorsPage'
 import { AuthModal } from './components/Auth/AuthModal';
 import { Matter } from './types';
 import { fetchAllMatters, fetchInvite, acceptInvite } from './services/matterService';
-import { Scale } from 'lucide-react';
+import { Gavel } from 'lucide-react';
 
 // Parses /invite/{matterId}/{inviteId}?token=... from the current URL. There
 // is no router in this app (see main.tsx) - this single pattern is handled
@@ -44,6 +44,7 @@ function AppContent() {
   const [matterToEdit, setMatterToEdit] = useState<Matter | null>(null);
   const [isDeadlineCalcOpen, setIsDeadlineCalcOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signup');
 
   // Invite-link state: if the URL matches /invite/:matterId/:inviteId, we
   // hold onto it until the user is signed in, then accept it once and clean
@@ -140,7 +141,7 @@ function AppContent() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--bg-base)]">
         <div className="flex flex-col items-center gap-3 text-[var(--text-muted)]">
-          <Scale className="w-8 h-8 text-[var(--gold)] animate-pulse" />
+          <Gavel className="w-8 h-8 text-[var(--gold)] animate-pulse" />
           <span className="text-[13px] font-medium">Loading Legalia…</span>
         </div>
       </div>
@@ -157,12 +158,13 @@ function AppContent() {
       <>
         <LandingPage
           isAuthed={false}
-          openAuthModal={() => setIsAuthModalOpen(true)}
+          openAuthModal={(mode = 'signup') => { setAuthMode(mode); setIsAuthModalOpen(true); }}
         />
         <AuthModal
           isOpen={isAuthModalOpen || !!pendingInvite}
           onClose={() => setIsAuthModalOpen(false)}
           pendingInvite={pendingInviteMeta}
+          initialMode={authMode}
         />
       </>
     );
@@ -179,7 +181,7 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-base)] text-[var(--text-main)] font-sans transition-colors duration-200 lg:pl-[76px]">
+    <div className="min-h-screen bg-[var(--bg-base)] text-[var(--text-main)] font-sans transition-colors duration-200 lg:pl-[232px]">
 
       {/* Desktop icon rail + mobile bottom tab bar */}
       <Sidebar
@@ -202,10 +204,11 @@ function AppContent() {
           }}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
+          openDeadlineCalcModal={() => setIsDeadlineCalcOpen(true)}
         />
 
         {/* Main Content Area */}
-        <main className="mx-auto w-full max-w-[1400px] flex-1 p-4 lg:p-8 overflow-y-auto">
+        <main className="mx-auto w-full min-w-0 max-w-[1400px] flex-1 p-4 lg:p-8">
 
           {selectedMatter ? (
             <MatterDetail
@@ -213,6 +216,7 @@ function AppContent() {
               onBack={() => setSelectedMatter(null)}
               onRefresh={loadMatters}
               onEdit={openEditMatterModal}
+              onDeleted={() => { setSelectedMatter(null); void loadMatters(); }}
             />
           ) : (
             <>
@@ -237,7 +241,7 @@ function AppContent() {
               )}
 
               {activeTab === 'reminders' && (
-                <RemindersManager matters={matters} />
+                <RemindersManager matters={matters} onSelectMatter={setSelectedMatter} />
               )}
 
               {activeTab === 'notifications' && (
@@ -250,7 +254,7 @@ function AppContent() {
               )}
 
               {activeTab === 'collaborators' && (
-                <CollaboratorsPage matters={matters} onRefresh={loadMatters} />
+                <CollaboratorsPage matters={matters} onRefresh={loadMatters} onSelectMatter={setSelectedMatter} />
               )}
 
               {activeTab === 'settings' && <SettingsPage />}

@@ -3,6 +3,7 @@ import { ArrowRight, CalendarRange, Download, FolderOpen, Gavel, LayoutGrid, Lis
 import { Matter, MatterStatus } from '../../types';
 import { exportMattersToCsv } from '../../utils/csvExport';
 import { DocketStamp } from '../common/DocketStamp';
+import { addDaysISO, daysUntil, formatDate, isOpenStatus, toISODate, todayISO } from '../../utils/dates';
 
 interface MattersListProps {
   matters: Matter[];
@@ -14,16 +15,7 @@ interface MattersListProps {
 
 const statuses: Array<'all' | MatterStatus> = ['all', 'active', 'adjourned', 'closed', 'won', 'lost'];
 
-// Local-time YYYY-MM-DD, matching the format stored in matter.nextHearingDate.
-const toISODate = (d: Date) => {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-};
-const addDays = (days: number) => {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return toISODate(d);
-};
+const addDays = (days: number) => addDaysISO(todayISO(), days);
 
 export function MattersList({ matters, onSelectMatter, openNewMatterModal, searchQuery, setSearchQuery }: MattersListProps) {
   const [selectedStatus, setSelectedStatus] = useState<'all' | MatterStatus>('all');
@@ -32,6 +24,14 @@ export function MattersList({ matters, onSelectMatter, openNewMatterModal, searc
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const filterMenuRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // Arriving here from the top-bar search: keep typing in this box.
+  useEffect(() => {
+    const el = searchRef.current;
+    if (el && searchQuery) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Close the filter menu on outside click or Escape.
   useEffect(() => {
@@ -87,16 +87,15 @@ export function MattersList({ matters, onSelectMatter, openNewMatterModal, searc
     <div className="page-stack">
       <section className="page-intro">
         <div>
-          <div className="eyebrow"><Gavel className="h-3.5 w-3.5" /> Private matter register</div>
-          <h1 className="page-title">Every matter has a <em>place.</em></h1>
-          <p className="page-subtitle">Your accessible matters, organised for quick retrieval before the next call, conference, or appearance.</p>
+          <h1 className="page-title">Matters</h1>
+          <p className="page-subtitle">Every case you own or have been invited to. Click one to see its details, history and people.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={() => exportMattersToCsv(filteredMatters, 'legalia-matters')} className="button-secondary">
-            <Download className="h-4 w-4" /> Export register
+            <Download className="h-4 w-4" /> Export CSV
           </button>
           <button onClick={openNewMatterModal} className="button-primary">
-            <Plus className="h-4 w-4" /> Open matter
+            <Plus className="h-4 w-4" /> New matter
           </button>
         </div>
       </section>
@@ -106,6 +105,7 @@ export function MattersList({ matters, onSelectMatter, openNewMatterModal, searc
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
             <input 
+              ref={searchRef}
               value={searchQuery} 
               onChange={(event) => setSearchQuery(event.target.value)} 
               placeholder="Search by suit number, party, court, judge, or subject…" 
@@ -126,7 +126,7 @@ export function MattersList({ matters, onSelectMatter, openNewMatterModal, searc
 
             {filtersOpen && (
               <div className="popover-panel right-0 top-full mt-2 w-[320px] max-w-[calc(100vw-2rem)] p-4">
-                <div className="mb-2 text-[11px] font-medium text-[var(--text-muted)]">Status</div>
+                <div className="mb-2 text-[12px] font-medium text-[var(--text-muted)]">Status</div>
                 <div className="flex flex-wrap gap-2">
                   {statuses.map((status) => (
                     <button
@@ -134,16 +134,16 @@ export function MattersList({ matters, onSelectMatter, openNewMatterModal, searc
                       onClick={() => setSelectedStatus(status)}
                       className={`filter-chip ${selectedStatus === status ? 'filter-chip-active' : ''}`}
                     >
-                      {status === 'all' ? 'All matters' : status}
+                      {status === 'all' ? 'All' : status}
                     </button>
                   ))}
                 </div>
 
-                <div className="mb-2 mt-5 flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-muted)]">
+                <div className="mb-2 mt-5 flex items-center gap-1.5 text-[12px] font-medium text-[var(--text-muted)]">
                   <CalendarRange className="h-3.5 w-3.5" /> Next hearing date
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <label className="block text-[10px] text-[var(--text-muted)]">
+                  <label className="block text-[12px] text-[var(--text-muted)]">
                     From
                     <input
                       type="date"
@@ -153,7 +153,7 @@ export function MattersList({ matters, onSelectMatter, openNewMatterModal, searc
                       className="field-control mt-1 w-full"
                     />
                   </label>
-                  <label className="block text-[10px] text-[var(--text-muted)]">
+                  <label className="block text-[12px] text-[var(--text-muted)]">
                     To
                     <input
                       type="date"
@@ -170,7 +170,7 @@ export function MattersList({ matters, onSelectMatter, openNewMatterModal, searc
                 </div>
 
                 <div className="mt-4 flex items-center justify-between border-t border-[var(--border-subtle)] pt-3">
-                  <span className="text-[11px] text-[var(--text-muted)]">{filteredMatters.length} of {matters.length} matters</span>
+                  <span className="text-[12px] text-[var(--text-muted)]">{filteredMatters.length} of {matters.length} matters</span>
                   <button
                     onClick={clearAllFilters}
                     disabled={activeFilterCount === 0}
@@ -217,22 +217,21 @@ export function MattersList({ matters, onSelectMatter, openNewMatterModal, searc
             </button>
           )}
         </div>
-        <p className="hidden font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--text-muted)] sm:block">Access is matter-specific</p>
       </div>
 
       {filteredMatters.length === 0 ? (
         <div className="panel-card">
           <div className="empty-state">
             <div className="empty-state-icon"><FolderOpen className="h-6 w-6" /></div>
-            <h2 className="font-serif-title text-[18px] font-semibold">{matters.length === 0 ? 'Your register is empty' : 'No matters match these filters'}</h2>
+            <h2 className="font-serif-title text-[18px] font-semibold">{matters.length === 0 ? 'No matters yet' : 'No matters match your search'}</h2>
             <p className="mt-2 max-w-sm text-center text-[12px] leading-5 text-[var(--text-muted)]">
               {matters.length === 0 
-                ? 'Open a matter to create a secure workspace for its papers, people, and appearances.' 
+                ? 'Add a matter with its suit number and claimant. Only you can see it until you share it.' 
                 : 'Try a different party name, suit number, status, or date range.'}
             </p>
             {matters.length === 0 && (
               <button onClick={openNewMatterModal} className="button-primary mt-5">
-                <Plus className="h-4 w-4" /> Open first matter
+                <Plus className="h-4 w-4" /> Add first matter
               </button>
             )}
           </div>
@@ -263,13 +262,13 @@ const MatterCard: React.FC<MatterCardProps> = ({ matter, onSelect }) => {
       <h2 className="mt-4 line-clamp-2 font-serif-title text-[17px] font-semibold leading-5 text-[var(--text-main)] group-hover:text-[var(--gold)]">
         {matter.title}
       </h2>
-      <div className="mt-4 space-y-2 text-[11px] text-[var(--text-muted)]">
-        <p className="truncate">{matter.court || 'Court not specified'}{matter.judge ? ` · ${matter.judge}` : ''}</p>
-        <p className="truncate">{matter.plaintiffs.join(', ') || 'Claimant not recorded'} v. {matter.defendants.join(', ') || 'Respondent not recorded'}</p>
+      <div className="mt-4 space-y-2 text-[12px] text-[var(--text-muted)]">
+        <p className="truncate">{matter.court || 'Court not added'}{matter.judge ? ` · ${matter.judge}` : ''}</p>
+        <p className="truncate">{matter.plaintiffs.join(', ') || 'Claimant not added'} v. {matter.defendants.join(', ') || 'Respondent not added'}</p>
       </div>
       <div className="mt-5 flex items-center justify-between border-t border-[var(--border-subtle)] pt-3">
-        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
-          {matter.nextHearingDate ? `Next · ${matter.nextHearingDate}` : 'No hearing date'}
+        <span className="font-mono text-[12px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
+          {matter.nextHearingDate ? `Next hearing · ${formatDate(matter.nextHearingDate)}` : 'No hearing date'}
         </span>
         <ArrowRight className="h-4 w-4 text-[var(--text-muted)] transition group-hover:translate-x-1 group-hover:text-[var(--gold)]" />
       </div>
@@ -290,13 +289,13 @@ const MatterListRow: React.FC<MatterListRowProps> = ({ matter, onSelect }) => {
         <h2 className="mt-1 truncate font-serif-title text-[16px] font-semibold text-[var(--text-main)] group-hover:text-[var(--gold)]">
           {matter.title}
         </h2>
-        <p className="mt-1 truncate text-[11px] text-[var(--text-muted)]">
-          {matter.court || 'Court not specified'}{matter.judge ? ` · ${matter.judge}` : ''} · {matter.defendants.join(', ') || 'No respondent recorded'}
+        <p className="mt-1 truncate text-[12px] text-[var(--text-muted)]">
+          {matter.court || 'Court not added'}{matter.judge ? ` · ${matter.judge}` : ''} · {matter.defendants.join(', ') || 'Respondent not added'}
         </p>
       </div>
       <div className="hidden min-w-[145px] text-right md:block">
-        <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--text-muted)]">Next appearance</p>
-        <p className="mt-1 text-[12px] font-semibold text-[var(--text-main)]">{matter.nextHearingDate || 'Not scheduled'}</p>
+        <p className="text-[12px] text-[var(--text-muted)]">Next hearing</p>
+        <p className={`mt-0.5 text-[13px] font-semibold ${isOpenStatus(matter.status) && (daysUntil(matter.nextHearingDate) ?? 0) < 0 ? 'text-[var(--caution-amber)]' : 'text-[var(--text-main)]'}`}>{formatDate(matter.nextHearingDate)}</p>
       </div>
       <ArrowRight className="h-4 w-4 shrink-0 text-[var(--text-muted)] transition group-hover:translate-x-1 group-hover:text-[var(--gold)]" />
     </button>

@@ -1,21 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
-import {
-  Bell,
-  Calculator,
-  CalendarClock,
-  Gavel,
-  LayoutDashboard,
-  LogOut,
-  Moon,
-  Plus,
-  Sun,
-  UserRound,
-  Users,
-} from 'lucide-react';
+import React, { type ReactNode } from 'react';
+import { Calculator, Gavel, LogOut, Moon, Plus, Sun } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useNotifications } from '../context/NotificationContext';
+import { MAIN_NAV, PAGES, initials, type PageId } from './navConfig';
 
 interface SidebarProps {
   activeTab: string;
@@ -24,143 +12,50 @@ interface SidebarProps {
   openDeadlineCalcModal: () => void;
 }
 
-const navItems = [
-  { id: 'dashboard', label: 'Workspace', icon: LayoutDashboard },
-  { id: 'matters', label: 'Matter register', icon: Gavel },
-  { id: 'reminders', label: 'Hearing diary', icon: CalendarClock },
-];
-
-function initials(name?: string) {
-  return (name || 'Counsel')
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('') || 'C';
-}
-
 export function Sidebar({ activeTab, setActiveTab, openNewMatterModal, openDeadlineCalcModal }: SidebarProps) {
   const { currentUser, logout } = useAuth();
   const { setTheme, isDark } = useTheme();
-  const { notifications, unreadCount, markRead } = useNotifications();
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [bellOpen, setBellOpen] = useState(false);
-  const profileRef = useRef<HTMLDivElement>(null);
-  const bellRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const closeMenus = (event: MouseEvent) => {
-      if (profileRef.current && !profileRef.current.contains(event.target as Node)) setProfileOpen(false);
-      if (bellRef.current && !bellRef.current.contains(event.target as Node)) setBellOpen(false);
-    };
-    document.addEventListener('mousedown', closeMenus);
-    return () => document.removeEventListener('mousedown', closeMenus);
-  }, []);
-
-  const recentNotifications = notifications.slice(0, 4);
+  const { unreadCount } = useNotifications();
 
   return (
     <>
-      {/* Desktop icon rail */}
-      <aside aria-label="Main navigation" className="rail hidden lg:flex">
-        <div className="rail-logo">
+      {/* Desktop sidebar - every item has a visible label */}
+      <aside aria-label="Main navigation" className="side hidden lg:flex">
+        <button onClick={() => setActiveTab('dashboard')} className="side-brand" aria-label="Legalia home">
           <span className="brand-mark"><Gavel className="h-[18px] w-[18px]" /></span>
-        </div>
+          <span className="font-serif-title text-[18px] font-semibold tracking-tight">Legalia</span>
+        </button>
 
-        <nav aria-label="Primary" className="rail-nav">
-          <RailItem
-            icon={<Plus />}
-            label="Open a matter"
-            active={false}
-            emphasis
-            onClick={openNewMatterModal}
-          />
-          {navItems.map((item) => (
-            <RailItem
-              key={item.id}
-              icon={<item.icon />}
-              label={item.label}
-              active={activeTab === item.id}
-              onClick={() => setActiveTab(item.id)}
-            />
+        <button onClick={openNewMatterModal} className="button-primary mt-6 w-full">
+          <Plus className="h-4 w-4" /> New matter
+        </button>
+
+        <nav aria-label="Primary" className="mt-6 flex flex-1 flex-col gap-1">
+          {MAIN_NAV.map((id) => (
+            <SideLink key={id} id={id} activeTab={activeTab} onClick={() => setActiveTab(id)} />
           ))}
+          <SideLink id="notifications" activeTab={activeTab} onClick={() => setActiveTab('notifications')} badge={unreadCount} />
+
+          <p className="side-section-label">Tools</p>
+          <button onClick={openDeadlineCalcModal} className="side-link">
+            <Calculator /> <span>Deadline calculator</span>
+          </button>
         </nav>
 
-        <div className="rail-bottom">
-          <div ref={bellRef} className="relative">
-            <RailItem
-              icon={<Bell />}
-              label="Notifications"
-              active={bellOpen || activeTab === 'notifications'}
-              onClick={() => setBellOpen((open) => !open)}
-              badge={unreadCount > 0 ? unreadCount : undefined}
-            />
-            {bellOpen && (
-              <div className="popover-panel bottom-0 left-full ml-3 w-[320px] p-2">
-                <div className="flex items-center justify-between px-3 py-2">
-                  <div>
-                    <p className="font-serif-title text-[15px] font-semibold">Notifications</p>
-                    <p className="text-[11px] text-[var(--text-muted)]">Updates from your matters</p>
-                  </div>
-                  <button onClick={() => setBellOpen(false)} className="text-[11px] font-medium text-[var(--gold)]">Close</button>
-                </div>
-                <div className="space-y-1">
-                  {recentNotifications.length === 0 ? (
-                    <div className="empty-mini">You are up to date.</div>
-                  ) : recentNotifications.map((notification) => (
-                    <button
-                      key={notification.id}
-                      onClick={() => {
-                        if (!notification.read) void markRead(notification.id);
-                        setBellOpen(false);
-                        if (notification.invite) setActiveTab('notifications');
-                        else if (notification.matterId) setActiveTab('matters');
-                      }}
-                      className={`w-full rounded-xl p-3 text-left transition hover:bg-[var(--bg-surface-hover)] ${notification.read ? '' : 'bg-[var(--gold-soft)]'}`}
-                    >
-                      <div className="flex items-start gap-2.5">
-                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--gold)]" />
-                        <span className="min-w-0">
-                          <span className="block text-[12px] leading-5 text-[var(--text-main)]">{notification.message}</span>
-                          <span className="mt-1 block font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--text-muted)]">{new Date(notification.createdAt).toLocaleDateString()}</span>
-                        </span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-                <button
-                  onClick={() => { setBellOpen(false); setActiveTab('notifications'); }}
-                  className="mt-1 w-full rounded-xl border-t border-[var(--border-subtle)] px-3 py-2.5 text-center text-[11px] font-semibold text-[var(--gold)] hover:bg-[var(--bg-surface-hover)]"
-                >
-                  View all notifications
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div ref={profileRef} className="relative">
-            <button onClick={() => setProfileOpen((open) => !open)} className="rail-avatar" aria-expanded={profileOpen} aria-label="Account menu">
-              <span className="avatar">{initials(currentUser?.name)}</span>
+        <div className="border-t border-[var(--border-subtle)] pt-3">
+          <SideLink id="settings" activeTab={activeTab} onClick={() => setActiveTab('settings')} />
+          <button className="side-link" onClick={() => setTheme(isDark ? 'light' : 'dark')}>
+            {isDark ? <Sun /> : <Moon />} <span>{isDark ? 'Light mode' : 'Dark mode'}</span>
+          </button>
+          <div className="mt-2 flex items-center gap-3 rounded-xl bg-[var(--bg-base)] p-2.5">
+            <span className="avatar">{initials(currentUser?.name)}</span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-semibold">{currentUser?.name}</p>
+              <p className="truncate text-[12px] text-[var(--text-muted)]">{currentUser?.email}</p>
+            </div>
+            <button onClick={() => void logout()} className="icon-button danger" aria-label="Sign out" title="Sign out">
+              <LogOut className="h-4 w-4" />
             </button>
-            {profileOpen && (
-              <div className="popover-panel bottom-0 left-full ml-3 w-[235px] p-2">
-                <div className="mb-1 flex items-center gap-3 rounded-xl bg-[var(--bg-base)] p-3">
-                  <span className="avatar">{initials(currentUser?.name)}</span>
-                  <div className="min-w-0">
-                    <p className="truncate text-[12px] font-semibold">{currentUser?.name || 'Counsel'}</p>
-                    <p className="truncate text-[10px] text-[var(--text-muted)]">{currentUser?.email}</p>
-                  </div>
-                </div>
-                <button className="menu-item" onClick={() => { setTheme(isDark ? 'light' : 'dark'); }}>
-                  {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />} {isDark ? 'Light appearance' : 'Dark appearance'}
-                </button>
-                <button className="menu-item" onClick={() => { setActiveTab('collaborators'); setProfileOpen(false); }}><Users className="h-4 w-4" /> Collaborators</button>
-                <button className="menu-item" onClick={() => { setActiveTab('settings'); setProfileOpen(false); }}><UserRound className="h-4 w-4" /> Profile &amp; preferences</button>
-                <button className="menu-item" onClick={() => { openDeadlineCalcModal(); setProfileOpen(false); }}><Calculator className="h-4 w-4" /> Deadline calculator</button>
-                <div className="my-1 border-t border-[var(--border-subtle)]" />
-                <button className="menu-item text-[var(--alert-red)]" onClick={() => void logout()}><LogOut className="h-4 w-4" /> Sign out</button>
-              </div>
-            )}
           </div>
         </div>
       </aside>
@@ -168,43 +63,42 @@ export function Sidebar({ activeTab, setActiveTab, openNewMatterModal, openDeadl
       {/* Mobile bottom tab bar */}
       <nav aria-label="Mobile navigation" className="bottom-tab-bar lg:hidden">
         <div className="grid grid-cols-5 items-end px-1 py-1.5">
-          <MobileTab id="dashboard" label="Workspace" icon={<LayoutDashboard />} activeTab={activeTab} onClick={() => setActiveTab('dashboard')} />
-          <MobileTab id="matters" label="Matters" icon={<Gavel />} activeTab={activeTab} onClick={() => setActiveTab('matters')} />
-          <button onClick={openNewMatterModal} className="flex flex-col items-center justify-center">
-            <span className="-mt-5 flex h-12 w-12 items-center justify-center rounded-full border-4 border-[var(--bg-base)] bg-[var(--gold)] text-[var(--ink-raised)] shadow-lg">
+          <MobileTab id="dashboard" activeTab={activeTab} onClick={() => setActiveTab('dashboard')} />
+          <MobileTab id="matters" activeTab={activeTab} onClick={() => setActiveTab('matters')} />
+          <button onClick={openNewMatterModal} className="flex flex-col items-center justify-center" aria-label="New matter">
+            <span className="-mt-5 flex h-12 w-12 items-center justify-center rounded-full border-4 border-[var(--bg-base)] bg-[var(--gold-fill)] text-[#151b28] shadow-lg">
               <Plus className="h-6 w-6" />
             </span>
-            <span className="mt-1 text-[10px] font-semibold text-[var(--text-muted)]">New</span>
+            <span className="mt-1 text-[12px] font-semibold text-[var(--text-muted)]">New</span>
           </button>
-          <MobileTab id="reminders" label="Diary" icon={<CalendarClock />} activeTab={activeTab} onClick={() => setActiveTab('reminders')} />
-          <MobileTab id="notifications" label="Notifications" icon={<Bell />} activeTab={activeTab} onClick={() => setActiveTab('notifications')} badge={unreadCount} />
+          <MobileTab id="reminders" activeTab={activeTab} onClick={() => setActiveTab('reminders')} />
+          <MobileTab id="notifications" activeTab={activeTab} onClick={() => setActiveTab('notifications')} badge={unreadCount} label="Alerts" />
         </div>
       </nav>
     </>
   );
 }
 
-interface RailItemProps { icon: ReactNode; label: string; active: boolean; onClick: () => void; emphasis?: boolean; badge?: number }
-const RailItem: React.FC<RailItemProps> = ({ icon, label, active, onClick, emphasis = false, badge }) => {
+const SideLink: React.FC<{ id: PageId; activeTab: string; onClick: () => void; badge?: number }> = ({ id, activeTab, onClick, badge }) => {
+  const { label, icon: Icon } = PAGES[id];
+  const active = activeTab === id;
   return (
-    <button onClick={onClick} className={`rail-item group ${active ? 'rail-item-active' : ''} ${emphasis ? 'rail-item-emphasis' : ''}`}>
-      <span className="relative">
-        {icon}
-        {typeof badge === 'number' && badge > 0 && <span className="notification-dot">{badge > 9 ? '9+' : badge}</span>}
-      </span>
-      <span className="rail-tooltip">{label}</span>
+    <button onClick={onClick} className={`side-link ${active ? 'side-link-active' : ''}`} aria-current={active ? 'page' : undefined}>
+      <Icon /> <span className="flex-1 text-left">{label}</span>
+      {typeof badge === 'number' && badge > 0 && <span className="side-badge">{badge > 9 ? '9+' : badge}</span>}
     </button>
   );
 };
 
-function MobileTab({ id, label, icon, activeTab, onClick, badge }: { id: string; label: string; icon: ReactNode; activeTab: string; onClick: () => void; badge?: number }) {
+function MobileTab({ id, activeTab, onClick, badge, label }: { id: PageId; activeTab: string; onClick: () => void; badge?: number; label?: string }): ReactNode {
+  const { label: pageLabel, icon: Icon } = PAGES[id];
   return (
-    <button onClick={onClick} className={`bottom-tab-item ${activeTab === id ? 'active' : ''}`}>
+    <button onClick={onClick} className={`bottom-tab-item ${activeTab === id ? 'active' : ''}`} aria-current={activeTab === id ? 'page' : undefined}>
       <span className="relative">
-        {icon}
+        <Icon />
         {typeof badge === 'number' && badge > 0 && <span className="notification-dot">{badge > 9 ? '9+' : badge}</span>}
       </span>
-      <span>{label}</span>
+      <span>{label || pageLabel}</span>
     </button>
   );
 }

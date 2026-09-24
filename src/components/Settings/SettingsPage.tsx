@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Settings, Sun, Moon, Monitor, Bell, User, Database } from 'lucide-react';
+import React, { useState, type ReactNode } from 'react';
+import { Bell, Monitor, Moon, Sun, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -12,208 +12,125 @@ export const SettingsPage: React.FC = () => {
   const [name, setName] = useState(currentUser?.name || '');
   const [title, setTitle] = useState(currentUser?.title || '');
   const [org, setOrg] = useState(currentUser?.organization || '');
-
   const [notifyEmail, setNotifyEmail] = useState(currentUser?.notifyPrefs?.email ?? true);
   const [notifyInApp, setNotifyInApp] = useState(currentUser?.notifyPrefs?.inApp ?? true);
-  const [notifyDigest, setNotifyDigest] = useState(currentUser?.notifyPrefs?.dailyDigest ?? true);
+  const [saving, setSaving] = useState(false);
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateUserProfile({
-      name,
-      title,
-      organization: org,
-      notifyPrefs: { email: notifyEmail, inApp: notifyInApp, dailyDigest: notifyDigest },
-    });
-    showToast('Profile Updated', 'User preferences saved successfully.', 'success');
+    setSaving(true);
+    try {
+      await updateUserProfile({
+        name: name.trim(),
+        title: title.trim(),
+        organization: org.trim(),
+        // dailyDigest kept false: no digest is sent yet, so the toggle was removed.
+        notifyPrefs: { email: notifyEmail, inApp: notifyInApp, dailyDigest: false },
+      });
+      showToast('Settings saved', 'Your changes are live.', 'success');
+    } catch {
+      showToast('Could not save', 'Please check your connection and try again.', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
+  const themes: Array<{ id: 'light' | 'dark' | 'system'; label: string; icon: ReactNode }> = [
+    { id: 'light', label: 'Light', icon: <Sun className="h-5 w-5" /> },
+    { id: 'dark', label: 'Dark', icon: <Moon className="h-5 w-5" /> },
+    { id: 'system', label: 'Match device', icon: <Monitor className="h-5 w-5" /> },
+  ];
+
   return (
-    <div className="space-y-6 max-w-4xl mx-auto text-[13px]">
-      
-      {/* Header */}
-      <div className="legal-card p-6 flex items-center gap-3">
-        <div className="icon-box-32">
-          <Settings className="w-4 h-4 text-[#B8935F]" />
-        </div>
+    <form onSubmit={handleSave} className="page-stack mx-auto max-w-3xl">
+      <section className="page-intro">
         <div>
-          <h1 className="font-serif font-semibold text-2xl text-[#12172B] dark:text-[#F6F3EC]">
-            Profile & preferences
-          </h1>
-          <p className="text-[13px] text-[#8A90AC]">
-            Appearance theme, notification preferences, and user profile credentials.
-          </p>
+          <h1 className="page-title">Settings</h1>
+          <p className="page-subtitle">Your profile, how Legalia looks, and how we reach you.</p>
         </div>
+      </section>
+
+      <Card icon={<User />} title="Profile">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Label text="Full name">
+            <input required value={name} onChange={(e) => setName(e.target.value)} className="field-control mt-1.5 w-full" />
+          </Label>
+          <Label text="Title (optional)">
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Barrister, Client, Paralegal" className="field-control mt-1.5 w-full" />
+          </Label>
+        </div>
+        <Label text="Firm or organisation (optional)">
+          <input value={org} onChange={(e) => setOrg(e.target.value)} className="field-control mt-1.5 w-full" />
+        </Label>
+        <p className="text-[13px] text-[var(--text-muted)]">Signed in as {currentUser?.email}</p>
+      </Card>
+
+      <Card icon={<Monitor />} title="Appearance">
+        <div className="grid grid-cols-3 gap-3">
+          {themes.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTheme(t.id)}
+              aria-pressed={theme === t.id}
+              className={`flex flex-col items-center gap-2 rounded-xl border p-4 text-[14px] font-semibold transition ${
+                theme === t.id
+                  ? 'border-[var(--gold)] bg-[var(--gold-soft)] text-[var(--gold)]'
+                  : 'border-[var(--border-subtle)] bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
+              }`}
+            >
+              {t.icon}
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </Card>
+
+      <Card icon={<Bell />} title="Reminders & notifications">
+        <Toggle
+          label="Email reminders"
+          hint="Hearing reminders the day before, and your custom reminders."
+          checked={notifyEmail}
+          onChange={setNotifyEmail}
+        />
+        <Toggle
+          label="In-app notifications"
+          hint="Show reminders and invitations under Notifications."
+          checked={notifyInApp}
+          onChange={setNotifyInApp}
+        />
+      </Card>
+
+      <div className="flex justify-end">
+        <button type="submit" disabled={saving} className="button-primary">{saving ? 'Saving…' : 'Save changes'}</button>
       </div>
-
-      <form onSubmit={handleSaveProfile} className="space-y-6">
-        
-        {/* Theme Card */}
-        <div className="legal-card p-6 space-y-4">
-          <div className="font-semibold text-sm text-[#12172B] dark:text-[#F6F3EC] flex items-center gap-2">
-            <Monitor className="w-4 h-4 text-[#B8935F]" />
-            Appearance Theme
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <button
-              type="button"
-              onClick={() => setTheme('light')}
-              className={`p-4 rounded-lg border font-semibold flex flex-col items-center gap-2 transition ${
-                theme === 'light'
-                  ? 'bg-[#B8935F]/15 border-[#B8935F] text-[#B8935F]'
-                  : 'bg-[#EDE8DC] dark:bg-[#12172B] border-[rgba(184,147,95,0.2)] text-[#12172B] dark:text-[#8A90AC]'
-              }`}
-            >
-              <Sun className="w-5 h-5 text-[#B8935F]" />
-              <span>Light Mode</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setTheme('dark')}
-              className={`p-4 rounded-lg border font-semibold flex flex-col items-center gap-2 transition ${
-                theme === 'dark'
-                  ? 'bg-[#B8935F]/15 border-[#B8935F] text-[#B8935F]'
-                  : 'bg-[#EDE8DC] dark:bg-[#12172B] border-[rgba(184,147,95,0.2)] text-[#12172B] dark:text-[#8A90AC]'
-              }`}
-            >
-              <Moon className="w-5 h-5 text-[#B8935F]" />
-              <span>Dark Mode</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setTheme('system')}
-              className={`p-4 rounded-lg border font-semibold flex flex-col items-center gap-2 transition ${
-                theme === 'system'
-                  ? 'bg-[#B8935F]/15 border-[#B8935F] text-[#B8935F]'
-                  : 'bg-[#EDE8DC] dark:bg-[#12172B] border-[rgba(184,147,95,0.2)] text-[#12172B] dark:text-[#8A90AC]'
-              }`}
-            >
-              <Monitor className="w-5 h-5 text-[#B8935F]" />
-              <span>System Sync</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Profile Info */}
-        <div className="legal-card p-6 space-y-4">
-          <div className="font-semibold text-sm text-[#12172B] dark:text-[#F6F3EC] flex items-center gap-2">
-            <User className="w-4 h-4 text-[#B8935F]" />
-            Counsel Profile Info
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Full Name</label>
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] font-semibold text-[#12172B] dark:text-[#F6F3EC] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
-              />
-            </div>
-
-            <div>
-              <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Professional Title</label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Senior Advocate / Partner"
-                className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] text-[#12172B] dark:text-[#F6F3EC] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Law Firm / Organization</label>
-            <input
-              type="text"
-              value={org}
-              onChange={(e) => setOrg(e.target.value)}
-              placeholder="Chisom & Partners Legal Chambers"
-              className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] text-[#12172B] dark:text-[#F6F3EC] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
-            />
-          </div>
-        </div>
-
-        {/* Notifications Prefs */}
-        <div className="legal-card p-6 space-y-4">
-          <div className="font-semibold text-sm text-[#12172B] dark:text-[#F6F3EC] flex items-center gap-2">
-            <Bell className="w-4 h-4 text-[#B8935F]" />
-            Notification Subscriptions
-          </div>
-
-          <div className="space-y-3">
-            <label className="flex items-center justify-between p-3 rounded-lg bg-[#EDE8DC] dark:bg-[#12172B]/60 border border-[rgba(184,147,95,0.15)] cursor-pointer">
-              <div>
-                <div className="font-semibold text-[#12172B] dark:text-[#F6F3EC]">Email Notifications</div>
-                <div className="text-[13px] text-[#8A90AC]">Receive upcoming cause list hearing alerts via email</div>
-              </div>
-              <input
-                type="checkbox"
-                checked={notifyEmail}
-                onChange={(e) => setNotifyEmail(e.target.checked)}
-                className="w-4 h-4 accent-[#B8935F] rounded"
-              />
-            </label>
-
-            <label className="flex items-center justify-between p-3 rounded-lg bg-[#EDE8DC] dark:bg-[#12172B]/60 border border-[rgba(184,147,95,0.15)] cursor-pointer">
-              <div>
-                <div className="font-semibold text-[#12172B] dark:text-[#F6F3EC]">In-App Feed Notifications</div>
-                <div className="text-[13px] text-[#8A90AC]">Receive real-time alerts in the notification bell menu</div>
-              </div>
-              <input
-                type="checkbox"
-                checked={notifyInApp}
-                onChange={(e) => setNotifyInApp(e.target.checked)}
-                className="w-4 h-4 accent-[#B8935F] rounded"
-              />
-            </label>
-
-            <label className="flex items-center justify-between p-3 rounded-lg bg-[#EDE8DC] dark:bg-[#12172B]/60 border border-[rgba(184,147,95,0.15)] cursor-pointer">
-              <div>
-                <div className="font-semibold text-[#12172B] dark:text-[#F6F3EC]">Daily Morning Digest</div>
-                <div className="text-[13px] text-[#8A90AC]">Receive daily summary of court sittings at 7:00 AM</div>
-              </div>
-              <input
-                type="checkbox"
-                checked={notifyDigest}
-                onChange={(e) => setNotifyDigest(e.target.checked)}
-                className="w-4 h-4 accent-[#B8935F] rounded"
-              />
-            </label>
-          </div>
-        </div>
-
-        {/* Database Info */}
-        <div className="legal-card p-6 space-y-4">
-          <div className="font-semibold text-sm text-[#12172B] dark:text-[#F6F3EC] flex items-center gap-2">
-            <Database className="w-4 h-4 text-[#B8935F]" />
-            Cloud Firestore Connection
-          </div>
-          <p className="text-[13px] text-[#8A90AC]">
-            Connected to your Cloud Firestore instance. A matter can only be deleted by the
-            person who owns it, from that matter's detail page - there is deliberately no single
-            button here to bulk-delete the whole register, since that action can't be undone and
-            would affect everyone with access to that matter.
-          </p>
-        </div>
-
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            className="px-6 py-2.5 rounded-lg bg-[#B8935F] hover:bg-[#8C6F49] text-[#12172B] font-bold transition shadow-sm"
-          >
-            Save Preferences
-          </button>
-        </div>
-
-      </form>
-
-    </div>
+    </form>
   );
 };
+
+function Card({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
+  return (
+    <section className="panel-card space-y-4">
+      <h2 className="flex items-center gap-2.5 text-[16px] font-semibold text-[var(--text-main)]">
+        <span className="icon-box-32 text-[var(--gold)]">{icon}</span> {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+function Label({ text, children }: { text: string; children: ReactNode }) {
+  return <label className="block text-[13px] font-medium text-[var(--text-main)]">{text}{children}</label>;
+}
+
+function Toggle({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)] p-4">
+      <span>
+        <span className="block text-[14px] font-semibold text-[var(--text-main)]">{label}</span>
+        <span className="block text-[13px] text-[var(--text-muted)]">{hint}</span>
+      </span>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-5 w-5 shrink-0 accent-[var(--gold)]" />
+    </label>
+  );
+}

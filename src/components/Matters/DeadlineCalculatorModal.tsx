@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, Calculator, Calendar, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { X, Calculator, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { formatDate, todayISO } from '../../utils/dates';
 import { calculateStatutoryDeadlines } from '../../utils/deadlineCalculator';
 
 interface DeadlineCalculatorModalProps {
@@ -12,7 +13,7 @@ export const DeadlineCalculatorModal: React.FC<DeadlineCalculatorModalProps> = (
   onClose,
 }) => {
   const [courtType, setCourtType] = useState('High Court Civil Procedure Rules');
-  const [filingDate, setFilingDate] = useState(new Date().toISOString().split('T')[0]);
+  const [filingDate, setFilingDate] = useState(todayISO());
 
   if (!isOpen) return null;
 
@@ -25,23 +26,23 @@ export const DeadlineCalculatorModal: React.FC<DeadlineCalculatorModalProps> = (
           <div className="flex items-center gap-3">
             <span className="modal-icon"><Calculator className="h-5 w-5" /></span>
             <div>
-              <p className="eyebrow">Statutory diary</p>
               <h2 id="deadline-calc-title" className="font-serif-title text-[18px] font-semibold">
                 Deadline calculator
               </h2>
             </div>
           </div>
-          <button onClick={onClose} className="icon-button"><X className="h-5 w-5" /></button>
+          <button onClick={onClose} className="icon-button" aria-label="Close"><X className="h-5 w-5" /></button>
         </div>
 
         <div className="modal-body">
-          <p className="mb-5 text-[12px] leading-5 text-[var(--text-muted)]">
-            Automated procedural timeline computation under civil court rules. This is a planning aid, not legal advice — always confirm against the applicable rules of court.
-          </p>
+          <div className="mb-5 flex gap-2.5 rounded-lg border border-[rgba(183,120,36,.35)] bg-[rgba(183,120,36,.08)] p-3 text-[13px] leading-5 text-[var(--text-main)]">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--caution-amber)]" />
+            <span><strong>Estimate only.</strong> Time limits differ between states and change when rules are amended. Always check the current rules of the court handling your case, or ask your lawyer.</span>
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-2 mb-4">
-            <label className="block text-[11px] font-medium text-[var(--text-muted)]">
-              Court jurisdiction rules
+            <label className="block text-[12px] font-medium text-[var(--text-muted)]">
+              Court
               <select
                 value={courtType}
                 onChange={(e) => setCourtType(e.target.value)}
@@ -53,8 +54,8 @@ export const DeadlineCalculatorModal: React.FC<DeadlineCalculatorModalProps> = (
               </select>
             </label>
 
-            <label className="block text-[11px] font-medium text-[var(--text-muted)]">
-              Filing / service commencement date
+            <label className="block text-[12px] font-medium text-[var(--text-muted)]">
+              {result.startLabel}
               <input
                 type="date"
                 value={filingDate}
@@ -65,30 +66,30 @@ export const DeadlineCalculatorModal: React.FC<DeadlineCalculatorModalProps> = (
           </div>
 
           <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--gold-soft)', border: '1px solid rgba(208,173,114,.32)' }}>
-            <div className="eyebrow">Computed schedule · {result.courtType}</div>
+            <div className="text-[13px] font-semibold text-[var(--text-main)]">Estimated dates</div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="panel-card !p-3">
-                <div className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">Statement of Claim / Appearance</div>
-                <div className="mt-0.5 text-sm font-semibold text-[var(--text-main)]">{result.statementOfClaimDue}</div>
+                <div className="text-[12px] text-[var(--text-muted)]">{result.labels[0]}</div>
+                <div className="mt-0.5 text-[15px] font-semibold text-[var(--text-main)]">{formatDate(result.statementOfClaimDue)}</div>
               </div>
               <div className="panel-card !p-3">
-                <div className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">Statement of Defense Limit</div>
-                <div className="mt-0.5 text-sm font-semibold text-[var(--text-main)]">{result.defenseDue}</div>
+                <div className="text-[12px] text-[var(--text-muted)]">{result.labels[1]}</div>
+                <div className="mt-0.5 text-[15px] font-semibold text-[var(--text-main)]">{formatDate(result.defenseDue)}</div>
               </div>
               <div className="panel-card !p-3">
-                <div className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">Claimant Reply Window</div>
-                <div className="mt-0.5 text-sm font-semibold text-[var(--text-main)]">{result.replyDue}</div>
+                <div className="text-[12px] text-[var(--text-muted)]">{result.labels[2]}</div>
+                <div className="mt-0.5 text-[15px] font-semibold text-[var(--text-main)]">{formatDate(result.replyDue)}</div>
               </div>
               <div className="panel-card !p-3">
-                <div className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">Pre-Trial Conference Max</div>
-                <div className="mt-0.5 text-sm font-semibold text-[var(--text-main)]">{result.preTrialConferenceMaxDate}</div>
+                <div className="text-[12px] text-[var(--text-muted)]">{result.labels[3]}</div>
+                <div className="mt-0.5 text-[15px] font-semibold text-[var(--text-main)]">{formatDate(result.preTrialConferenceMaxDate)}</div>
               </div>
             </div>
 
             <div className="space-y-1.5 pt-1">
               {result.statutoryNotes.map((note, idx) => (
-                <div key={idx} className="flex items-start gap-2 text-[11px] leading-4 text-[var(--text-main)]">
+                <div key={idx} className="flex items-start gap-2 text-[12px] leading-4 text-[var(--text-main)]">
                   <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5" style={{ color: 'var(--gold)' }} />
                   <span>{note}</span>
                 </div>
@@ -98,7 +99,7 @@ export const DeadlineCalculatorModal: React.FC<DeadlineCalculatorModalProps> = (
 
           <div className="modal-footer">
             <button onClick={onClose} className="button-primary">
-              Close <ShieldCheck className="h-4 w-4" />
+              Close
             </button>
           </div>
         </div>

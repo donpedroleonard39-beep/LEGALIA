@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Scale, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -7,13 +7,14 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   pendingInvite?: { matterTitle?: string; matterSuitNumber?: string } | null;
+  initialMode?: 'signin' | 'signup';
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, pendingInvite }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, pendingInvite, initialMode = 'signup' }) => {
   const { loginWithGoogle, loginWithEmail, signUpWithEmail, resetPassword } = useAuth();
   const { showToast } = useNotifications();
 
-  const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin');
+  const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -21,6 +22,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, pendingIn
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [resetSent, setResetSent] = useState(false);
+
+  useEffect(() => { if (isOpen) { setMode(initialMode); setErrorMessage(''); } }, [isOpen, initialMode]);
 
   if (!isOpen) return null;
 
@@ -90,12 +93,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, pendingIn
               <Scale className="w-4 h-4" style={{ color: 'var(--gold)' }} />
             </div>
             <div className="font-serif font-semibold text-lg" style={{ color: 'var(--text-main)' }}>
-              LEGALIA Access
+              Welcome to Legalia
             </div>
           </div>
           <button
             onClick={onClose}
             className="icon-button"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
@@ -123,7 +127,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, pendingIn
               className="flex-1 py-2 rounded-md transition"
               style={mode === 'signup' ? { background: 'var(--gold)', color: 'var(--ink-raised)' } : { color: 'var(--text-muted)' }}
             >
-              Register Account
+              Create account
             </button>
           </div>
         )}
@@ -168,9 +172,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, pendingIn
         )}
 
         {mode !== 'reset' && (
-          <div className="relative my-4 text-center text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+          <div className="relative my-4 text-center text-[12px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
             <div className="absolute inset-0 top-2 border-t" style={{ borderColor: 'var(--border-subtle)' }} />
-            <span className="relative px-2" style={{ background: 'var(--bg-surface)' }}>or Email Credentials</span>
+            <span className="relative px-2" style={{ background: 'var(--bg-surface)' }}>or use email</span>
           </div>
         )}
 
@@ -212,7 +216,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, pendingIn
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="counsel@lawfirm.com"
+                placeholder="you@example.com"
                 className="field-control mt-1.5 w-full"
               />
             </label>
@@ -256,8 +260,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, pendingIn
             )}
 
             {mode === 'signup' && (
-              <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-                New accounts begin with a private workspace. Open matters yourself or accept invitations; access is always limited to the matters you own or have been invited to.
+              <p className="text-[12px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                Free to use. Your matters are private — only people you invite can see them.
               </p>
             )}
 

@@ -1,24 +1,22 @@
 import { DeadlineCalculation } from '../types';
+import { addDaysISO, parseLocalDate, toISODate, todayISO } from './dates';
 
 export function calculateStatutoryDeadlines(courtType: string, filingDateStr: string): DeadlineCalculation {
-  const filingDate = new Date(filingDateStr);
-  
-  if (isNaN(filingDate.getTime())) {
-    const today = new Date().toISOString().split('T')[0];
-    return calculateStatutoryDeadlines(courtType, today);
+  const filingDate = parseLocalDate(filingDateStr);
+
+  if (!filingDate) {
+    return calculateStatutoryDeadlines(courtType, todayISO());
   }
 
-  // Helper to add calendar days
-  const addDays = (date: Date, days: number): string => {
-    const d = new Date(date);
-    d.setDate(d.getDate() + days);
-    return d.toISOString().split('T')[0];
-  };
+  // Calendar days, in local time (the old UTC round-trip could shift a day).
+  const addDays = (date: Date, days: number): string => addDaysISO(toISODate(date), days);
 
   if (courtType.toLowerCase().includes('federal')) {
     return {
       courtType: 'Federal High Court (Civil Procedure)',
       filingDate: filingDateStr,
+      startLabel: 'Date the writ was served',
+      labels: ['Defendant enters appearance', 'Statement of defence due', 'Claimant’s reply (approx.)', 'Pre-trial conference (latest, approx.)'],
       statementOfClaimDue: addDays(filingDate, 14),
       defenseDue: addDays(filingDate, 30),
       replyDue: addDays(filingDate, 44),
@@ -34,6 +32,8 @@ export function calculateStatutoryDeadlines(courtType: string, filingDateStr: st
     return {
       courtType: 'Court of Appeal Rules',
       filingDate: filingDateStr,
+      startLabel: 'Date the record of appeal was transmitted',
+      labels: ['Appellant’s brief due', 'Respondent’s brief due (approx.)', 'Appellant’s reply brief (approx.)', 'Outer planning date'],
       statementOfClaimDue: addDays(filingDate, 60),
       defenseDue: addDays(filingDate, 105),
       replyDue: addDays(filingDate, 120),
@@ -50,6 +50,8 @@ export function calculateStatutoryDeadlines(courtType: string, filingDateStr: st
     return {
       courtType: 'High Court Civil Procedure Rules',
       filingDate: filingDateStr,
+      startLabel: 'Date the writ was served',
+      labels: ['Defendant enters appearance', 'Statement of defence due', 'Claimant’s reply (approx.)', 'Pre-trial conference (latest, approx.)'],
       statementOfClaimDue: addDays(filingDate, 14),
       defenseDue: addDays(filingDate, 42),
       replyDue: addDays(filingDate, 56),

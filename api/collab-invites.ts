@@ -12,7 +12,9 @@ import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 // rules (correctly) stop the browser from adding them, and the `collabInvites`
 // collection is deliberately not readable from the browser at all.
 //
-// One endpoint, four actions: create | list | revoke | respond.
+// One endpoint, five actions: create | list | revoke | respond | accept-link.
+// accept-link redeems a shareable invite link (matters/{id}/invites/{id}); it
+// has to run here because the person opening the link is not a member yet.
 
 type Permission = 'editor' | 'viewer';
 interface Grant { matterId: string; permission: Permission }
@@ -257,6 +259,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
 
       return res.status(200).json({ status, matterIds: appliedIds });
+    }
+
+    // ----------------------------------------------------------- accept-link
+    if (action === 'accept-link') {
+      const matterId = str(body.matterId);
+      const inviteId = str(body.inviteId);
+      const token = str(body.token);
+      if (!safeId(matterId) || !safeId(inviteId) || !token) throw new HttpError(400, 'This invite link is not valid.');
+
+      const matterRef = db.collection('matters').doc(matterId);
+      const inviteRef = matterRef.collection('invites').doc(inviteId);
+      const now = new Date().toISOString();
+
+      const result = await db.runTransaction(async (tx) => {
+        const [inviteSnap, matterSnap] = await Promise.all([tx.get(inviteRef), tx.get(matterRef)]);
+        const invite = inviteSnap.data();
+        const matter = matterSnap.data();
+        if (!invite || invite.token !== token) throw new HttpError(404, 'This invite link is not valid or was cancelled.');
+        if (!matter) throw new HttpError(404, 'This matter no longer exists.');
+        if (matter.members?.[uid]) return { already: true, matter };
+        if (invite.status !== 'pending') throw new HttpError(409, 'This invite link has already been used. Ask for a new one.');
+        const permission: Permission = isPermission(invite.permission) ? invite.permission : 'viewer';
+        tx.update(matterRef, { [`members.${uid}`]: permission, updatedAt: now });
+        tx.update(inviteRef, { status: 'accepted', acceptedBy: uid, acceptedAt: now });
+        return { already: false, matter };
+      });
+
+      if (!result.already) {
+        await addHearingReminder(db, result.matter, matterId, uid).catch(() => {});
+        const joinerName = await displayName(db, uid, 'Someone');
+        await db.collection('notifications').add({
+          userId: result.matter.ownerId,
+          matterId,
+          suitNumber: result.matter.suitNumber || '',
+          type: 'system',
+          message: `${joinerName} joined ${result.matter.suitNumber || 'your matter'} using your invite link.`,
+          read: false,
+          createdAt: now,
+        });
+      }
+      return res.status(200).json({ ok: true, matterId, alreadyMember: result.already });
     }
 
     throw new HttpError(400, 'Unknown action.');

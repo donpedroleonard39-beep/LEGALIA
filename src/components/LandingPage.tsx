@@ -12,7 +12,7 @@ import {
 interface LandingPageProps {
   isAuthed: boolean;
   setActiveTab?: (tab: string) => void;
-  openAuthModal: () => void;
+  openAuthModal: (mode?: 'signin' | 'signup') => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ isAuthed, setActiveTab, openAuthModal }) => {
@@ -20,12 +20,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ isAuthed, setActiveTab
     if (isAuthed && setActiveTab) {
       setActiveTab('dashboard');
     } else {
-      openAuthModal();
+      openAuthModal('signup');
     }
   };
 
   return (
-    <div className="w-full min-h-screen flex flex-col justify-between overflow-x-hidden text-[13px]" style={{ background: 'var(--ink-raised)', color: 'var(--paper)' }}>
+    <div className="landing w-full min-h-screen flex flex-col justify-between overflow-x-hidden text-[14px]">
       
       {/* Hero Header */}
       <div className="relative pt-12 pb-20 px-6 max-w-6xl mx-auto text-center">
@@ -49,9 +49,29 @@ export const LandingPage: React.FC<LandingPageProps> = ({ isAuthed, setActiveTab
             onClick={enterPractice}
             className="button-primary text-sm"
           >
-            {isAuthed ? 'Open your matters' : 'Sign in / register'} <ArrowRight className="w-4 h-4" />
+            {isAuthed ? 'Open your matters' : 'Get started free'} <ArrowRight className="w-4 h-4" />
           </button>
+          {!isAuthed && (
+            <button onClick={() => openAuthModal('signin')} className="button-secondary text-sm">
+              I already have an account
+            </button>
+          )}
         </div>
+
+        {/* How it works - three steps so a first-time visitor knows what to do inside */}
+        <ol className="mt-14 grid gap-4 text-left sm:grid-cols-3">
+          {[
+            ['Open a matter', 'Enter the suit number and the parties. Everything else can wait.'],
+            ['Add the next hearing date', 'Everyone on the matter gets a reminder the day before.'],
+            ['Share a link', 'Send your lawyer, client or colleague a link. You choose if they can edit or only view.'],
+          ].map(([title, body], i) => (
+            <li key={title} className="legal-card !p-5">
+              <span className="font-mono text-[12px] font-bold" style={{ color: 'var(--gold)' }}>STEP {i + 1}</span>
+              <p className="mt-2 font-semibold text-[15px]" style={{ color: 'var(--paper)' }}>{title}</p>
+              <p className="mt-1 text-[14px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>{body}</p>
+            </li>
+          ))}
+        </ol>
 
       </div>
 
@@ -76,7 +96,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ isAuthed, setActiveTab
               </div>
               <h3 className="font-serif font-semibold text-base mb-2" style={{ color: 'var(--paper)' }}>Suit & Hearing Tracking</h3>
               <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-                Log suit numbers, presiding judges, court divisions, plot descriptions, hearing dates, and appearances in one place.
+                Keep suit numbers, judges, courts, hearing dates and what happened at each hearing in one place.
               </p>
             </div>
 
@@ -84,9 +104,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ isAuthed, setActiveTab
               <div className="icon-box-32 mb-4">
                 <Clock className="w-4 h-4" style={{ color: 'var(--gold)' }} />
               </div>
-              <h3 className="font-serif font-semibold text-base mb-2" style={{ color: 'var(--paper)' }}>Statutory Deadline Calculator</h3>
+              <h3 className="font-serif font-semibold text-base mb-2" style={{ color: 'var(--paper)' }}>Deadline Calculator</h3>
               <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-                Estimate Statement of Claim, Defense, Reply, and Pre-Trial Conference windows under civil court rules.
+                Get a rough timeline for appearance, defence, reply and pre-trial dates. A planning aid — always check your court's rules.
               </p>
             </div>
 
@@ -96,7 +116,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ isAuthed, setActiveTab
               </div>
               <h3 className="font-serif font-semibold text-base mb-2" style={{ color: 'var(--paper)' }}>Automatic Hearing Reminders</h3>
               <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-                Set a hearing date on a matter and everyone with access is reminded automatically as it approaches — no manual scheduling.
+                Set a hearing date on a matter and everyone with access gets an email and in-app reminder the day before.
               </p>
             </div>
 
@@ -116,7 +136,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ isAuthed, setActiveTab
               </div>
               <h3 className="font-serif font-semibold text-base mb-2" style={{ color: 'var(--paper)' }}>Printable Case Briefs</h3>
               <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-                Generate a clean, court-ready printable brief from a matter's details whenever you need a physical copy.
+                Print a clean one-page brief of a matter and its history whenever you need a paper copy.
               </p>
             </div>
 
@@ -137,7 +157,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ isAuthed, setActiveTab
 
       {/* Footer */}
       <footer className="py-8 px-6 text-center text-[13px]" style={{ borderTop: '1px solid rgba(184,147,95,.2)', color: 'var(--text-muted)' }}>
-        LEGALIA Personal Matter Tracker &bull; Built on Firebase
+        Legalia — your matters, hearings and reminders in one place
       </footer>
 
     </div>

@@ -1,243 +1,255 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Clock, Bell, Trash2, CheckCircle2, AlertCircle, Plus, Mail } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, ArrowRight, Bell, CalendarDays, Plus, Trash2, X } from 'lucide-react';
 import { Matter, Reminder } from '../../types';
 import { fetchUserReminders, createReminder, deleteReminder } from '../../services/matterService';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { daysUntil, formatDate, isOpenStatus, parseLocalDate, relativeDay } from '../../utils/dates';
 
 interface RemindersManagerProps {
   matters: Matter[];
+  onSelectMatter?: (matter: Matter) => void;
 }
 
-export const RemindersManager: React.FC<RemindersManagerProps> = ({ matters }) => {
+// Automatic hearing reminders use deterministic ids (see syncHearingReminders).
+const isAutomatic = (r: Reminder) => r.id.startsWith('hr_');
+
+const channelLabel = (r: Reminder) => {
+  const email = r.channel.includes('email');
+  const app = r.channel.includes('inApp');
+  return email && app ? 'Email + in-app' : email ? 'Email' : 'In-app';
+};
+
+export const RemindersManager: React.FC<RemindersManagerProps> = ({ matters, onSelectMatter }) => {
   const { currentUser } = useAuth();
   const { showToast } = useNotifications();
 
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const [selectedMatterId, setSelectedMatterId] = useState(matters[0]?.id || '');
+  const [selectedMatterId, setSelectedMatterId] = useState('');
   const [remindAtDate, setRemindAtDate] = useState('');
   const [message, setMessage] = useState('');
   const [notifyEmail, setNotifyEmail] = useState(true);
   const [notifyInApp, setNotifyInApp] = useState(true);
 
+  // matters often arrive after this page mounts - pick a default once they do.
   useEffect(() => {
-    loadReminders();
-  }, [currentUser]);
+    if (!selectedMatterId && matters.length) setSelectedMatterId(matters[0].id);
+  }, [matters, selectedMatterId]);
 
   const loadReminders = async () => {
     if (!currentUser) return;
     setLoading(true);
-    const list = await fetchUserReminders(currentUser.uid);
-    setReminders(list);
-    setLoading(false);
+    try {
+      setReminders(await fetchUserReminders(currentUser.uid));
+    } catch {
+      showToast('Could not load reminders', 'Please refresh and try again.', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Upcoming alerts first, soonest at the top; past alerts follow, most recent first.
-  const sortedReminders = useMemo(() => {
-    const now = Date.now();
-    const time = (r: Reminder) => new Date(r.remindAt).getTime();
-    const upcoming = reminders.filter((r) => time(r) >= now).sort((a, b) => time(a) - time(b));
-    const past = reminders.filter((r) => time(r) < now).sort((a, b) => time(b) - time(a));
-    return { upcoming, past };
-  }, [reminders]);
+  useEffect(() => { void loadReminders(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [currentUser]);
+
+  const openMatters = matters.filter((m) => isOpenStatus(m.status));
+  const upcoming = useMemo(() => openMatters
+    .filter((m) => (daysUntil(m.nextHearingDate) ?? -1) >= 0)
+    .sort((a, b) => (a.nextHearingDate || '').localeCompare(b.nextHearingDate || '')), [openMatters]);
+  const thisWeek = upcoming.filter((m) => (daysUntil(m.nextHearingDate) ?? 99) <= 7);
+  const later = upcoming.filter((m) => (daysUntil(m.nextHearingDate) ?? 0) > 7);
+  const passed = openMatters.filter((m) => (daysUntil(m.nextHearingDate) ?? 0) < 0);
+
+  const now = Date.now();
+  const scheduled = reminders
+    .filter((r) => !r.fired && new Date(r.remindAt).getTime() >= now - 3600_000)
+    .sort((a, b) => a.remindAt.localeCompare(b.remindAt));
 
   const selectedMatter = matters.find((m) => m.id === selectedMatterId);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!remindAtDate || !selectedMatter || !currentUser) return;
+    if (!currentUser) return;
+    if (!selectedMatter) return showToast('Choose a matter', 'Pick which matter this reminder is for.', 'warning');
+    if (!remindAtDate) return showToast('Choose a date and time', 'When should we remind you?', 'warning');
+    if (!notifyEmail && !notifyInApp) return showToast('Choose how', 'Tick email, in-app, or both.', 'warning');
+    if (new Date(remindAtDate).getTime() < Date.now()) return showToast('That time has passed', 'Pick a time in the future.', 'warning');
 
     const channels: ('email' | 'inApp')[] = [];
     if (notifyEmail) channels.push('email');
     if (notifyInApp) channels.push('inApp');
 
-    await createReminder({
-      userId: currentUser.uid,
-      matterId: selectedMatter.id,
-      suitNumber: selectedMatter.suitNumber,
-      remindAt: new Date(remindAtDate).toISOString(),
-      message: message.trim() || `Hearing for ${selectedMatter.suitNumber} before ${selectedMatter.judge || 'Court'}`,
-      channel: channels,
-    });
-
-    showToast('Alert Scheduled', `Reminder created for ${selectedMatter.suitNumber}.`, 'success');
-    setRemindAtDate('');
-    setMessage('');
-    loadReminders();
+    setSaving(true);
+    try {
+      await createReminder({
+        userId: currentUser.uid,
+        matterId: selectedMatter.id,
+        suitNumber: selectedMatter.suitNumber,
+        remindAt: new Date(remindAtDate).toISOString(),
+        message: message.trim() || `Reminder for ${selectedMatter.suitNumber} – ${selectedMatter.title}`,
+        channel: channels,
+      });
+      showToast('Reminder set', `We'll remind you about ${selectedMatter.suitNumber}.`, 'success');
+      setRemindAtDate('');
+      setMessage('');
+      setShowForm(false);
+      void loadReminders();
+    } catch {
+      showToast('Could not save reminder', 'Please try again.', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
-
-  const renderReminder = (r: Reminder) => (
-                <div
-                  key={r.id}
-                  className="p-4 rounded-lg bg-[#EDE8DC] dark:bg-[#12172B]/60 border border-[rgba(184,147,95,0.2)] flex items-start justify-between text-[13px]"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-[#B8935F]">
-                        {r.suitNumber}
-                      </span>
-                      <span className="text-[13px] text-[#8A90AC]">
-                        {new Date(r.remindAt).toLocaleString()}
-                      </span>
-                    </div>
-
-                    <p className="font-medium text-[#12172B] dark:text-[#F6F3EC]">
-                      {r.message}
-                    </p>
-
-                    <div className="text-[13px] text-[#8A90AC] flex items-center gap-2">
-                      <span>Channels: {r.channel.join(', ')}</span>
-                      &bull;
-                      <span>Status: {r.fired ? 'FIRED' : 'PENDING'}</span>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => handleDelete(r.id)}
-                    className="p-1.5 rounded-lg text-[#8A90AC] hover:text-[#C1554A] hover:bg-[#C1554A]/10 transition"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              );
 
   const handleDelete = async (id: string) => {
-    await deleteReminder(id);
-    showToast('Reminder Removed', 'Alert deleted from schedule.', 'info');
-    loadReminders();
+    if (!window.confirm('Delete this reminder?')) return;
+    try {
+      await deleteReminder(id);
+      setReminders((cur) => cur.filter((r) => r.id !== id));
+      showToast('Reminder deleted', 'You will not be notified for it.', 'info');
+    } catch {
+      showToast('Could not delete', 'Please try again.', 'error');
+    }
   };
 
+  const open = (m: Matter) => onSelectMatter?.(m);
+
   return (
-    <div className="space-y-6 text-[13px]">
-      
-      {/* Header */}
-      <div className="legal-card p-6">
-        <div className="flex items-center gap-3">
-          <div className="icon-box-32">
-            <Clock className="w-4 h-4 text-[#B8935F]" />
-          </div>
-          <div>
-            <h1 className="font-serif font-semibold text-2xl text-[#12172B] dark:text-[#F6F3EC]">
-              Hearing diary
-            </h1>
-            <p className="text-[13px] text-[#8A90AC]">
-              Set automated notifications for upcoming court cause list dates and statutory filing windows.
-            </p>
-          </div>
+    <div className="page-stack">
+      <section className="page-intro">
+        <div>
+          <h1 className="page-title">Hearings</h1>
+          <p className="page-subtitle">
+            Your upcoming court dates. Everyone on a matter gets an email and in-app reminder the day before each hearing — you don’t need to set these up.
+          </p>
         </div>
-      </div>
+        <button onClick={() => setShowForm((v) => !v)} className="button-secondary" disabled={matters.length === 0}>
+          {showForm ? <><X className="h-4 w-4" /> Close</> : <><Plus className="h-4 w-4" /> Add a custom reminder</>}
+        </button>
+      </section>
 
-      {/* Form & List Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Create Reminder Form */}
-        <form onSubmit={handleCreate} className="legal-card p-6 space-y-4">
-          <div className="font-semibold text-sm text-[#12172B] dark:text-[#F6F3EC] flex items-center gap-2">
-            <Plus className="w-4 h-4 text-[#B8935F]" />
-            Schedule Suit Alert
-          </div>
-
+      {showForm && (
+        <form onSubmit={handleCreate} className="panel-card space-y-4">
           <div>
-            <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Select Suit / Defendant</label>
-            <select
-              value={selectedMatterId}
-              onChange={(e) => setSelectedMatterId(e.target.value)}
-              className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] font-bold text-[#B8935F] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
-            >
-              {matters.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.suitNumber} &bull; {m.title.substring(0, 30)}
-                </option>
-              ))}
-            </select>
+            <h2 className="section-title">Custom reminder</h2>
+            <p className="mt-1 text-[13px] text-[var(--text-muted)]">For anything besides the hearing itself — e.g. “file witness statement”. Reminders go out at the start of the hour you pick.</p>
           </div>
-
-          <div>
-            <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Alert Date & Time</label>
-            <input
-              type="datetime-local"
-              required
-              value={remindAtDate}
-              onChange={(e) => setRemindAtDate(e.target.value)}
-              className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] font-semibold text-[#12172B] dark:text-[#F6F3EC] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
-            />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block text-[13px] font-medium">Matter
+              <select value={selectedMatterId} onChange={(e) => setSelectedMatterId(e.target.value)} className="field-control mt-1.5 w-full">
+                {matters.map((m) => <option key={m.id} value={m.id}>{m.suitNumber} — {m.title.slice(0, 40)}</option>)}
+              </select>
+            </label>
+            <label className="block text-[13px] font-medium">Remind me on
+              <input type="datetime-local" value={remindAtDate} onChange={(e) => setRemindAtDate(e.target.value)} className="field-control mt-1.5 w-full" />
+            </label>
           </div>
-
-          <div>
-            <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Custom Alert Message</label>
-            <textarea
-              rows={2}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="e.g. Prepare witness statement for P.T.C hearing before Hon. Justice Ajah"
-              className="w-full p-2.5 rounded-lg bg-[#F6F3EC] dark:bg-[#12172B] border border-[rgba(184,147,95,0.25)] text-[#12172B] dark:text-[#F6F3EC] focus:outline-none focus:ring-2 focus:ring-[#B8935F]"
-            />
+          <label className="block text-[13px] font-medium">What should it say? (optional)
+            <input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="e.g. File witness statement before the pre-trial conference" className="field-control mt-1.5 w-full" />
+          </label>
+          <div className="flex flex-wrap items-center gap-5 text-[14px]">
+            <label className="flex items-center gap-2"><input type="checkbox" checked={notifyEmail} onChange={(e) => setNotifyEmail(e.target.checked)} className="h-4 w-4 accent-[var(--gold)]" /> Email</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={notifyInApp} onChange={(e) => setNotifyInApp(e.target.checked)} className="h-4 w-4 accent-[var(--gold)]" /> In-app notification</label>
+            <button type="submit" disabled={saving} className="button-primary ml-auto">{saving ? 'Saving…' : 'Save reminder'}</button>
           </div>
+        </form>
+      )}
 
-          <div>
-            <label className="block font-semibold mb-1 text-[#12172B] dark:text-[#F6F3EC]">Notification Channels</label>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-1.5 cursor-pointer font-medium text-[#12172B] dark:text-[#F6F3EC]">
-                <input
-                  type="checkbox"
-                  checked={notifyInApp}
-                  onChange={(e) => setNotifyInApp(e.target.checked)}
-                  className="rounded accent-[#B8935F]"
-                />
-                In-App Feed
-              </label>
-
-              <label className="flex items-center gap-1.5 cursor-pointer font-medium text-[#12172B] dark:text-[#F6F3EC]">
-                <input
-                  type="checkbox"
-                  checked={notifyEmail}
-                  onChange={(e) => setNotifyEmail(e.target.checked)}
-                  className="rounded accent-[#B8935F]"
-                />
-                Trigger Email
-              </label>
+      {passed.length > 0 && (
+        <section className="panel-card !border-[rgba(183,120,36,.4)]">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[var(--caution-amber)]" />
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[15px] font-semibold">{passed.length} hearing date{passed.length === 1 ? ' has' : 's have'} passed</h2>
+              <p className="mt-1 text-[14px] text-[var(--text-muted)]">Open the matter, record what happened and set the next date.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {passed.map((m) => (
+                  <button key={m.id} onClick={() => open(m)} className="filter-chip !normal-case">
+                    {m.suitNumber} · was {formatDate(m.nextHearingDate)}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
+        </section>
+      )}
 
-          <button
-            type="submit"
-            className="w-full py-2.5 rounded-lg bg-[#B8935F] hover:bg-[#8C6F49] text-[#12172B] font-bold transition shadow-sm"
-          >
-            Schedule Alert
-          </button>
-        </form>
-
-        {/* Reminders List */}
-        <div className="lg:col-span-2 legal-card p-6 space-y-4">
-          <div className="font-semibold text-sm text-[#12172B] dark:text-[#F6F3EC] flex items-center justify-between">
-            <span>Scheduled Hearing Alerts ({reminders.length})</span>
-            <span className="text-[13px] text-[#8A90AC] font-normal">Auto-scanned daily</span>
+      <section className="panel-card overflow-hidden">
+        {upcoming.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state-icon"><CalendarDays className="h-6 w-6" /></div>
+            <h2 className="font-serif-title text-[18px] font-semibold">No upcoming hearings</h2>
+            <p className="mt-2 max-w-sm text-[14px] text-[var(--text-muted)]">Add a “Next hearing date” to a matter and it will appear here.</p>
           </div>
+        ) : (
+          <>
+            <HearingGroup title="Next 7 days" items={thisWeek} onOpen={open} urgent />
+            <HearingGroup title="Later" items={later} onOpen={open} />
+          </>
+        )}
+      </section>
 
-          <div className="space-y-3">
-            {reminders.length === 0 ? (
-              <div className="text-center py-12 text-[#8A90AC] text-[13px]">
-                No active hearing alerts scheduled.
-              </div>
-            ) : (
-              <>
-                {sortedReminders.upcoming.length > 0 && (
-                  <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#8A90AC]">Upcoming · soonest first</div>
-                )}
-                {sortedReminders.upcoming.map(renderReminder)}
-                {sortedReminders.past.length > 0 && (
-                  <div className="pt-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[#8A90AC]">Past</div>
-                )}
-                {sortedReminders.past.map(renderReminder)}
-              </>
-            )}
+      <section className="panel-card">
+        <div className="panel-heading">
+          <div>
+            <h2 className="section-title">Your scheduled reminders</h2>
+            <p className="mt-1 text-[13px] text-[var(--text-muted)]">Automatic ones are created from hearing dates and update when the date changes.</p>
           </div>
         </div>
+        {loading ? (
+          <p className="py-4 text-[14px] text-[var(--text-muted)]">Loading…</p>
+        ) : scheduled.length === 0 ? (
+          <p className="py-4 text-[14px] text-[var(--text-muted)]">No reminders scheduled.</p>
+        ) : (
+          <ul className="divide-y divide-[var(--border-subtle)]">
+            {scheduled.map((r) => (
+              <li key={r.id} className="flex items-start gap-3 py-3">
+                <Bell className="mt-0.5 h-4 w-4 shrink-0 text-[var(--gold)]" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[14px] text-[var(--text-main)]">{r.message}</p>
+                  <p className="mt-0.5 text-[13px] text-[var(--text-muted)]">
+                    {new Date(r.remindAt).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
+                    {' · '}{channelLabel(r)}{' · '}{isAutomatic(r) ? 'Automatic' : 'Custom'}
+                  </p>
+                </div>
+                <button onClick={() => handleDelete(r.id)} className="icon-button danger" aria-label="Delete reminder" title="Delete reminder">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+};
 
+const HearingGroup: React.FC<{ title: string; items: Matter[]; onOpen: (m: Matter) => void; urgent?: boolean }> = ({ title, items, onOpen, urgent }) => {
+  if (items.length === 0) return null;
+  return (
+    <div className="border-b border-[var(--border-subtle)] last:border-b-0">
+      <p className="px-5 pt-4 text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">{title}</p>
+      <div className="divide-y divide-[var(--border-subtle)]">
+        {items.map((m) => {
+          const d = parseLocalDate(m.nextHearingDate);
+          return (
+            <button key={m.id} onClick={() => onOpen(m)} className="matter-row group w-full text-left">
+              <div className={`date-tile ${urgent ? 'date-tile-urgent' : ''}`}>
+                <span className="font-mono text-[12px] uppercase">{d?.toLocaleDateString(undefined, { month: 'short' })}</span>
+                <strong>{d?.getDate()}</strong>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[14px] font-semibold">{m.title}</p>
+                <p className="mt-0.5 truncate text-[13px] text-[var(--text-muted)]">{m.suitNumber} · {m.purpose || 'Hearing'} · {m.court || 'Court not added'}</p>
+              </div>
+              <span className={`hidden shrink-0 text-[13px] font-semibold sm:block ${urgent ? 'text-[var(--alert-red)]' : ''}`}>{relativeDay(m.nextHearingDate)}</span>
+              <ArrowRight className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
+            </button>
+          );
+        })}
       </div>
-
     </div>
   );
 };

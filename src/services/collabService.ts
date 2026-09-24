@@ -40,3 +40,6 @@ export const revokeCollabInvite = (inviteId: string) =>
 
 export const respondToCollabInvite = (inviteId: string, accept: boolean) =>
   call<{ status: 'accepted' | 'declined'; matterIds: string[] }>({ action: 'respond', inviteId, accept });
+
+export const acceptInviteLink = (matterId: string, inviteId: string, token: string) =>
+  call<{ ok: true; matterId: string; alreadyMember: boolean }>({ action: 'accept-link', matterId, inviteId, token });

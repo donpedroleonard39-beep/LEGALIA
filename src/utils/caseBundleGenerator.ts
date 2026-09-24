@@ -28,7 +28,7 @@ export function generatePrintableBrief(
       <head>
         <title>Case Brief - ${escapeHtml(matter.suitNumber)}</title>
         <style>
-          body { font-family: 'Playfair Display', serif; line-height: 1.6; color: #1a1a1a; padding: 50px; background: #fff; }
+          body { font-family: Georgia, 'Times New Roman', serif; line-height: 1.6; color: #1a1a1a; padding: 50px; background: #fff; }
           .header { text-align: center; border-bottom: 3px solid #1a365d; padding-bottom: 20px; margin-bottom: 30px; }
           .title { font-size: 26px; font-weight: bold; text-transform: uppercase; color: #1a365d; }
           .subtitle { font-size: 14px; color: #666; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px; }

@@ -139,5 +139,8 @@ export interface DeadlineCalculation {
   defenseDue: string;
   replyDue: string;
   preTrialConferenceMaxDate: string;
+  /** Human labels for the four dates above, which mean different things per court. */
+  labels: [string, string, string, string];
+  startLabel: string;
   statutoryNotes: string[];
 }

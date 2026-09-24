@@ -6,6 +6,7 @@ import {
   ref, uploadBytesResumable, getDownloadURL, deleteObject 
 } from 'firebase/storage';
 import { db, storage } from '../firebase/config';
+import { acceptInviteLink } from './collabService';
 import { 
   Matter, MatterDocument, TimelineEvent, Reminder, 
   AppNotification, MatterInvite, MatterPermission 
@@ -133,7 +134,21 @@ async function syncHearingReminders(matter: Matter, hearingDate: string): Promis
   }));
 }
 
-export async function deleteMatterById(id: string): Promise<void> {
+export async function deleteMatterById(id: string, currentUid?: string): Promise<void> {
+  // Remove reminders first, while we are still a member (rules check that).
+  // Otherwise they keep firing for a matter that no longer exists.
+  const matter = await fetchMatterById(id);
+  if (matter?.nextHearingDate) {
+    await cancelHearingReminders(id, matter.nextHearingDate).catch(() => {});
+  }
+  if (currentUid) {
+    const own = await getDocs(query(
+      collection(db, REMINDERS_COLLECTION),
+      where('userId', '==', currentUid),
+      where('matterId', '==', id),
+    )).catch(() => null);
+    await Promise.all((own?.docs || []).map((d) => deleteDoc(d.ref).catch(() => {})));
+  }
   await deleteDoc(doc(db, MATTERS_COLLECTION, id));
 }
 
@@ -162,22 +177,16 @@ export async function fetchInvite(matterId: string, inviteId: string): Promise<M
   return snap.exists() ? snap.data() as MatterInvite : null;
 }
 
+// Redeeming a link runs on the server (api/collab-invites, action
+// 'accept-link'): the person opening it is not a member yet, so Firestore
+// rules rightly stop the browser from adding them to the matter itself.
 export async function acceptInvite(
-  matterId: string, inviteId: string, token: string, uid: string
+  matterId: string, inviteId: string, token: string, _uid: string
 ): Promise<Matter> {
-  const invite = await fetchInvite(matterId, inviteId);
-  if (!invite || invite.token !== token) throw new Error('Invalid invite');
-  if (invite.status === 'accepted') throw new Error('This invite has already been used.');
+  await acceptInviteLink(matterId, inviteId, token);
   const matter = await fetchMatterById(matterId);
-  if (!matter) throw new Error('Matter not found');
-  const members = { ...matter.members, [uid]: invite.permission };
-  await updateDoc(doc(db, MATTERS_COLLECTION, matterId), { 
-    members, updatedAt: new Date().toISOString() 
-  });
-  await updateDoc(doc(collection(db, MATTERS_COLLECTION, matterId, 'invites'), inviteId), {
-    status: 'accepted',
-  });
-  return { ...matter, members };
+  if (!matter) throw new Error('You joined, but the matter could not be loaded. Please refresh.');
+  return matter;
 }
 
 // Lists every invite (pending or accepted) on a matter, newest first, so
