@@ -122,11 +122,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       if (stored.length === 0) throw new HttpError(409, 'They already have access to the selected matters.');
 
-      // A new invitation replaces any earlier pending one to the same person.
+      // A new invitation replaces any earlier pending one to the same person,
+      // but carries over the matters that one offered (unless re-chosen here),
+      // so "Add matters" never silently withdraws an earlier offer.
       const earlier = await db.collection('collabInvites')
         .where('inviterId', '==', uid).where('inviteeId', '==', inviteeId).get();
       for (const doc of earlier.docs) {
         if (doc.data().status !== 'pending') continue;
+        for (const g of (doc.data().grants || []) as StoredGrant[]) {
+          if (stored.some((x) => x.matterId === g.matterId)) continue;
+          const m = (await db.collection('matters').doc(g.matterId).get()).data();
+          if (!m || m.ownerId !== uid || m.members?.[inviteeId]) continue;
+          stored.push({ matterId: g.matterId, permission: g.permission, suitNumber: m.suitNumber || '', title: m.title || '' });
+        }
         await doc.ref.update({ status: 'revoked' });
         const nid = doc.data().notificationId as string | undefined;
         if (nid) await db.collection('notifications').doc(nid).update({ 'invite.status': 'revoked', read: true }).catch(() => {});
@@ -140,7 +148,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await notifRef.set({
         userId: inviteeId,
         type: 'invite',
-        message: `${inviterName} invited you to collaborate on ${plural(stored.length)}.`,
+        message: `${inviterName} invited you to work on ${stored.length === 1 ? `matter ${stored[0].suitNumber}` : plural(stored.length)}. Accept to open ${stored.length === 1 ? 'it' : 'them'}.`,
         read: false,
         createdAt: now,
         invite: {
