@@ -12,6 +12,7 @@ const navLabels: Record<string, string> = {
   matters: 'Matter register',
   reminders: 'Hearing diary',
   notifications: 'Notifications',
+  collaborators: 'Collaborators',
   settings: 'Profile & preferences',
 };
 
