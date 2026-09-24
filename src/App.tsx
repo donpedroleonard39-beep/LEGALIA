@@ -64,7 +64,10 @@ function AppContent() {
   // a pending invite, so AuthModal can show "You've been invited to X" even
   // before the person signs in.
   useEffect(() => {
-    if (!pendingInvite) return;
+    // Firestore rules only let signed-in users read an invite. Running this
+    // before sign-in was denied, which dropped the invite and lost it for
+    // new users; wait for a session instead.
+    if (!pendingInvite || !firebaseUser) return;
     fetchInvite(pendingInvite.matterId, pendingInvite.inviteId)
       .then((invite) => {
         if (invite) {
@@ -76,7 +79,8 @@ function AppContent() {
         // error before the person has even signed in.
         setPendingInvite(null);
       });
-  }, [pendingInvite]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingInvite, firebaseUser]);
 
   // Once signed in, accept the pending invite (if any) exactly once, then
   // clean the URL and jump straight to the matter.
