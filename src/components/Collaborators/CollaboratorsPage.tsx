@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { UserPlus, X } from 'lucide-react';
+import { FolderPlus, UserPlus, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { Matter, MatterPermission } from '../../types';
 import { fetchUserProfiles, removeMember, setMemberPermission } from '../../services/matterService';
 import { listPendingCollabInvites, revokeCollabInvite, type PendingCollabInvite } from '../../services/collabService';
 import { InviteCollaboratorModal } from '../Matters/InviteCollaboratorModal';
+import { AddMattersModal } from './AddMattersModal';
 
 type SharedPermission = Exclude<MatterPermission, 'owner'>;
 
@@ -25,6 +26,7 @@ export const CollaboratorsPage: React.FC<CollaboratorsPageProps> = ({ matters, o
   const [pending, setPending] = useState<PendingCollabInvite[]>([]);
   const [profiles, setProfiles] = useState<Record<string, { name: string; email: string }>>({});
   const [busy, setBusy] = useState<string | null>(null);
+  const [addingFor, setAddingFor] = useState<{ uid: string; name: string; email: string } | null>(null);
 
   const owned = useMemo(() => matters.filter((m) => m.ownerId === currentUser?.uid), [matters, currentUser]);
 
@@ -92,7 +94,7 @@ export const CollaboratorsPage: React.FC<CollaboratorsPageProps> = ({ matters, o
 
       {pending.length > 0 && (
         <section className="panel-card">
-          <div className="panel-heading"><h2 className="section-title">Older email invitations (awaiting reply)</h2></div>
+          <div className="panel-heading"><h2 className="section-title">Invitations awaiting a reply</h2></div>
           <div className="divide-y divide-[var(--border-subtle)]">
             {pending.map((invite) => (
               <div key={invite.id} className="flex items-center justify-between gap-3 py-3">
@@ -135,9 +137,18 @@ export const CollaboratorsPage: React.FC<CollaboratorsPageProps> = ({ matters, o
                         <p className="truncate text-[12px] text-[var(--text-muted)]">{profile?.email || ''}</p>
                       </div>
                     </div>
-                    <button onClick={() => removeFromAll(uid, name, list)} disabled={busy === `all_${uid}`} className="button-secondary text-[12px]">
-                      Remove from all
-                    </button>
+                    <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                      <button
+                        onClick={() => setAddingFor({ uid, name, email: profile?.email || '' })}
+                        disabled={!profile}
+                        className="button-secondary text-[12px]"
+                      >
+                        <FolderPlus className="h-3.5 w-3.5" /> Add matters
+                      </button>
+                      <button onClick={() => removeFromAll(uid, name, list)} disabled={busy === `all_${uid}`} className="button-secondary text-[12px]">
+                        Remove from all
+                      </button>
+                    </div>
                   </div>
 
                   <ul className="mt-3 space-y-1.5 pl-11">
@@ -185,6 +196,15 @@ export const CollaboratorsPage: React.FC<CollaboratorsPageProps> = ({ matters, o
       </section>
 
       {showInvite && <InviteCollaboratorModal matters={owned} onClose={() => setShowInvite(false)} onSent={() => {}} />}
+      {addingFor && (
+        <AddMattersModal
+          person={addingFor}
+          owned={owned}
+          pendingForPerson={pending.filter((i) => i.email.toLowerCase() === addingFor.email.toLowerCase())}
+          onClose={() => setAddingFor(null)}
+          onSent={loadPending}
+        />
+      )}
     </div>
   );
 };
