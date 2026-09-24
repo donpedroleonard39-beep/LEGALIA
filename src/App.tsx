@@ -13,6 +13,7 @@ import { DeadlineCalculatorModal } from './components/Matters/DeadlineCalculator
 import { RemindersManager } from './components/Reminders/RemindersManager';
 import { NotificationsPage } from './components/Notifications/NotificationsPage';
 import { SettingsPage } from './components/Settings/SettingsPage';
+import { CollaboratorsPage } from './components/Collaborators/CollaboratorsPage';
 import { AuthModal } from './components/Auth/AuthModal';
 import { Matter } from './types';
 import { fetchAllMatters, fetchInvite, acceptInvite } from './services/matterService';
@@ -244,7 +245,12 @@ function AppContent() {
                   onSelectMatter={setSelectedMatter}
                   setActiveTab={setActiveTab}
                   matters={matters}
+                  onInviteAnswered={loadMatters}
                 />
+              )}
+
+              {activeTab === 'collaborators' && (
+                <CollaboratorsPage matters={matters} onRefresh={loadMatters} />
               )}
 
               {activeTab === 'settings' && <SettingsPage />}
