@@ -137,6 +137,12 @@ export async function deleteMatterById(id: string): Promise<void> {
   await deleteDoc(doc(db, MATTERS_COLLECTION, id));
 }
 
+// The link is fully derivable from the stored invite (matter id, invite id and
+// token), so the owner can re-copy it any time from the Pending invites list.
+export function buildInviteLink(invite: Pick<MatterInvite, 'matterId' | 'id' | 'token'>): string {
+  return `${window.location.origin}/invite/${invite.matterId}/${invite.id}?token=${invite.token}`;
+}
+
 export async function generateInviteLink(
   matterId: string, 
   permission: Exclude<MatterPermission, 'owner'>
@@ -148,7 +154,7 @@ export async function generateInviteLink(
     status: 'pending', permission, token, createdAt: new Date().toISOString() 
   };
   await setDoc(doc(collection(db, MATTERS_COLLECTION, matterId, 'invites'), inviteId), invite);
-  return `${window.location.origin}/invite/${matterId}/${inviteId}?token=${token}`;
+  return buildInviteLink(invite);
 }
 
 export async function fetchInvite(matterId: string, inviteId: string): Promise<MatterInvite | null> {
