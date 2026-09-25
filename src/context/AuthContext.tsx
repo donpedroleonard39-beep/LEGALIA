@@ -6,6 +6,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  sendEmailVerification,
   User as FirebaseUser,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -22,6 +23,11 @@ interface AuthContextType {
   resetPassword: (e: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUserProfile: (fields: Partial<UserProfile>) => Promise<void>;
+  /** False only for email/password accounts that have not clicked the link yet. */
+  emailVerified: boolean;
+  sendVerificationEmail: () => Promise<void>;
+  /** Re-check after the person clicks the link (also refreshes their session token). */
+  refreshVerification: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,7 +55,8 @@ function friendlyAuthMessage(err: any): string {
     case 'auth/email-already-in-use':
       return 'An account already exists with that email. Try signing in instead.';
     case 'auth/weak-password':
-      return 'Please choose a password with at least 6 characters.';
+    case 'auth/password-does-not-meet-requirements':
+      return 'Please choose a stronger password: at least 8 characters, with letters and numbers.';
     case 'auth/missing-password':
       return 'Please enter a password.';
     case 'auth/network-request-failed':
@@ -150,6 +157,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const res = await createUserWithEmailAndPassword(auth, e, p);
       if (res.user) {
+        // Prove they own the address - email invitations are only delivered
+        // to verified accounts, so nobody can claim someone else's email.
+        await sendEmailVerification(res.user).catch(() => {});
         const profile = await ensureUserProfile(res.user, name);
         setCurrentUser(profile);
         return res.user;
@@ -166,6 +176,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err: any) {
       throw new Error(friendlyAuthMessage(err));
     }
+  };
+
+  // Bumped after reload() so components re-render with the updated user.
+  const [, setVerifiedTick] = useState(0);
+  const emailVerified = !firebaseUser || firebaseUser.emailVerified;
+
+  const sendVerificationEmail = async () => {
+    if (!auth.currentUser) return;
+    try {
+      await sendEmailVerification(auth.currentUser);
+    } catch (err: any) {
+      if (err?.code === 'auth/too-many-requests') throw new Error('We just sent one. Please wait a minute before asking again.');
+      throw new Error('Could not send the email. Please try again.');
+    }
+  };
+
+  const refreshVerification = async () => {
+    if (!auth.currentUser) return false;
+    await auth.currentUser.reload();
+    // New token so the server sees email_verified = true straight away.
+    await auth.currentUser.getIdToken(true);
+    setFirebaseUser(auth.currentUser);
+    setVerifiedTick((t) => t + 1);
+    return auth.currentUser.emailVerified;
   };
 
   const logout = async () => {
@@ -188,6 +222,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         currentUser,
         firebaseUser,
         loading,
+        emailVerified,
+        sendVerificationEmail,
+        refreshVerification,
         loginWithGoogle,
         loginWithEmail,
         signUpWithEmail,

@@ -49,7 +49,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, pendingIn
         onClose();
       } else {
         await signUpWithEmail(email, password, name);
-        showToast('Account Created', 'Your account was registered.', 'success');
+        showToast('Account created', 'We sent you an email — click the link in it to verify your address.', 'success');
         onClose();
       }
     } catch (err: any) {
@@ -226,10 +226,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, pendingIn
                   <input
                     type={showPassword ? 'text' : 'password'}
                     required
-                    minLength={6}
+                    minLength={mode === 'signup' ? 8 : 6}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
+                    placeholder={mode === 'signup' ? 'At least 8 characters' : '••••••••'}
                     className="field-control w-full pr-11"
                   />
                   <button

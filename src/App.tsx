@@ -18,6 +18,7 @@ import { AuthModal } from './components/Auth/AuthModal';
 import { Matter } from './types';
 import { fetchAllMatters, fetchInvite, acceptInvite } from './services/matterService';
 import { LogoMark } from './components/common/LogoMark';
+import { VerifyEmailBanner } from './components/common/VerifyEmailBanner';
 
 // Parses /invite/{matterId}/{inviteId}?token=... from the current URL. There
 // is no router in this app (see main.tsx) - this single pattern is handled
@@ -77,7 +78,7 @@ function AppContent() {
     // before sign-in was denied, which dropped the invite and lost it for
     // new users; wait for a session instead.
     if (!pendingInvite || !firebaseUser) return;
-    fetchInvite(pendingInvite.matterId, pendingInvite.inviteId)
+    fetchInvite(pendingInvite.matterId, pendingInvite.inviteId, pendingInvite.token)
       .then((invite) => {
         if (invite) {
           setPendingInviteMeta({ matterTitle: invite.matterTitle, matterSuitNumber: invite.matterSuitNumber });
@@ -230,6 +231,7 @@ function AppContent() {
 
         {/* Main Content Area */}
         <main className="mx-auto w-full min-w-0 max-w-[1400px] flex-1 p-4 lg:p-8">
+          <VerifyEmailBanner />
 
           {selectedMatter ? (
             <MatterDetail

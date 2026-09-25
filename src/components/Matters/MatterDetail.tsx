@@ -128,7 +128,7 @@ export function MatterDetail({ matter, onBack, onRefresh, onEdit, onDeleted }: M
           />
         )}
         {activeTab === 'timeline' && <TimelinePanel matter={matter} canEdit={canEdit} onRefresh={onRefresh} startOpen={openLogForm} onFormClosed={() => setOpenLogForm(false)} />}
-        {activeTab === 'people' && <PeoplePanel matter={matter} isOwner={isOwner} onRefresh={onRefresh} />}
+        {activeTab === 'people' && <PeoplePanel matter={matter} isOwner={isOwner} onRefresh={onRefresh} onLeft={onDeleted || onBack} />}
       </main>
     </div>
   );
@@ -470,7 +470,8 @@ async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
-function PeoplePanel({ matter, isOwner, onRefresh }: { matter: Matter; isOwner: boolean; onRefresh: () => void }) {
+function PeoplePanel({ matter, isOwner, onRefresh, onLeft }: { matter: Matter; isOwner: boolean; onRefresh: () => void; onLeft: () => void }) {
+  const { currentUser } = useAuth();
   const { showToast } = useNotifications();
   const [inviteLoading, setInviteLoading] = useState(false);
   const [invitePermission, setInvitePermission] = useState<Exclude<MatterPermission, 'owner'>>('editor');
@@ -628,6 +629,27 @@ function PeoplePanel({ matter, isOwner, onRefresh }: { matter: Matter; isOwner: 
           })}
         </div>
       </div>
+
+      {!isOwner && currentUser && (
+        <div className="panel-card flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[14px] text-[var(--text-muted)]">Don’t need this matter any more? Leaving removes it from your list. The owner can invite you again.</p>
+          <button
+            onClick={async () => {
+              if (!window.confirm('Leave this matter? You will lose access until you are invited again.')) return;
+              try {
+                await removeMember(matter, currentUser.uid);
+                showToast('You left the matter', `${matter.suitNumber} is no longer in your list.`, 'success');
+                onLeft();
+              } catch (err: any) {
+                showToast('Could not leave', err?.message || 'Please try again.', 'error');
+              }
+            }}
+            className="button-secondary shrink-0 text-[var(--alert-red)]"
+          >
+            Leave this matter
+          </button>
+        </div>
+      )}
 
       {isOwner && pendingInvites.length > 0 && (
         <div className="panel-card">

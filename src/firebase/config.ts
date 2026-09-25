@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { initializeFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
 import firebaseConfigJson from '../../firebase-applet-config.json';
 
 const firebaseConfig = {
@@ -14,6 +15,17 @@ const firebaseConfig = {
 };
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+
+// Firebase App Check: proves requests come from this app, not a script using
+// the (public) API key. Off until VITE_RECAPTCHA_ENTERPRISE_KEY is set in
+// Vercel; then turn on enforcement in the Firebase console (see SECURITY.md).
+const appCheckKey = import.meta.env.VITE_RECAPTCHA_ENTERPRISE_KEY;
+if (appCheckKey && typeof window !== 'undefined') {
+  initializeAppCheck(app, {
+    provider: new ReCaptchaEnterpriseProvider(appCheckKey),
+    isTokenAutoRefreshEnabled: true,
+  });
+}
 
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();

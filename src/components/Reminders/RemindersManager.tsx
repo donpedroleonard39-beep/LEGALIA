@@ -4,7 +4,7 @@ import { Matter, Reminder } from '../../types';
 import { fetchUserReminders, createReminder, deleteReminder } from '../../services/matterService';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
-import { daysUntil, formatDate, isOpenStatus, parseLocalDate, relativeDay } from '../../utils/dates';
+import { daysUntil, formatDate, isOpenStatus, parseLocalDate, relativeDay, todayISO } from '../../utils/dates';
 
 interface RemindersManagerProps {
   matters: Matter[];
@@ -63,7 +63,10 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({ matters, onS
   const passed = openMatters.filter((m) => (daysUntil(m.nextHearingDate) ?? 0) < 0);
 
   const now = Date.now();
+  // Old per-person hearing reminders ("hr_…") are now worked out by the
+  // server from each matter's hearing date, so only custom ones are listed.
   const scheduled = reminders
+    .filter((r) => !isAutomatic(r))
     .filter((r) => !r.fired && new Date(r.remindAt).getTime() >= now - 3600_000)
     .sort((a, b) => a.remindAt.localeCompare(b.remindAt));
 
@@ -75,7 +78,7 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({ matters, onS
     if (!selectedMatter) return showToast('Choose a matter', 'Pick which matter this reminder is for.', 'warning');
     if (!remindAtDate) return showToast('Choose a date and time', 'When should we remind you?', 'warning');
     if (!notifyEmail && !notifyInApp) return showToast('Choose how', 'Tick email, in-app, or both.', 'warning');
-    if (new Date(remindAtDate).getTime() < Date.now()) return showToast('That time has passed', 'Pick a time in the future.', 'warning');
+    if (remindAtDate < todayISO()) return showToast('That date has passed', 'Pick today or a later date.', 'warning');
 
     const channels: ('email' | 'inApp')[] = [];
     if (notifyEmail) channels.push('email');
@@ -87,7 +90,7 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({ matters, onS
         userId: currentUser.uid,
         matterId: selectedMatter.id,
         suitNumber: selectedMatter.suitNumber,
-        remindAt: new Date(remindAtDate).toISOString(),
+        remindAt: new Date(`${remindAtDate}T06:00:00`).toISOString(),
         message: message.trim() || `Reminder for ${selectedMatter.suitNumber} – ${selectedMatter.title}`,
         channel: channels,
       });
@@ -134,7 +137,7 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({ matters, onS
         <form onSubmit={handleCreate} className="panel-card space-y-4">
           <div>
             <h2 className="section-title">Custom reminder</h2>
-            <p className="mt-1 text-[13px] text-[var(--text-muted)]">For anything besides the hearing itself — e.g. “file witness statement”. Reminders go out at the start of the hour you pick.</p>
+            <p className="mt-1 text-[13px] text-[var(--text-muted)]">For anything besides the hearing itself — e.g. “file witness statement”. Custom reminders are sent by the daily 7:00am run on the day you pick.</p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block text-[13px] font-medium">Matter
@@ -142,12 +145,12 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({ matters, onS
                 {matters.map((m) => <option key={m.id} value={m.id}>{m.suitNumber} — {m.title.slice(0, 40)}</option>)}
               </select>
             </label>
-            <label className="block text-[13px] font-medium">Remind me on
-              <input type="datetime-local" value={remindAtDate} onChange={(e) => setRemindAtDate(e.target.value)} className="field-control mt-1.5 w-full" />
+            <label className="block text-[13px] font-medium">Remind me on (sent at 7:00am)
+              <input type="date" value={remindAtDate} onChange={(e) => setRemindAtDate(e.target.value)} className="field-control mt-1.5 w-full" />
             </label>
           </div>
           <label className="block text-[13px] font-medium">What should it say? (optional)
-            <input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="e.g. File witness statement before the pre-trial conference" className="field-control mt-1.5 w-full" />
+            <input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="e.g. File witness statement before the pre-trial conference" maxLength={500} className="field-control mt-1.5 w-full" />
           </label>
           <div className="flex flex-wrap items-center gap-5 text-[14px]">
             <label className="flex items-center gap-2"><input type="checkbox" checked={notifyEmail} onChange={(e) => setNotifyEmail(e.target.checked)} className="h-4 w-4 accent-[var(--gold)]" /> Email</label>
@@ -194,14 +197,14 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({ matters, onS
       <section className="panel-card">
         <div className="panel-heading">
           <div>
-            <h2 className="section-title">Your scheduled reminders</h2>
-            <p className="mt-1 text-[13px] text-[var(--text-muted)]">Automatic ones are created from hearing dates and update when the date changes.</p>
+            <h2 className="section-title">Your custom reminders</h2>
+            <p className="mt-1 text-[13px] text-[var(--text-muted)]">Hearing reminders are automatic: everyone on a matter gets one at 7:00am the day before each hearing. Custom reminders you add are listed here.</p>
           </div>
         </div>
         {loading ? (
           <p className="py-4 text-[14px] text-[var(--text-muted)]">Loading…</p>
         ) : scheduled.length === 0 ? (
-          <p className="py-4 text-[14px] text-[var(--text-muted)]">No reminders scheduled.</p>
+          <p className="py-4 text-[14px] text-[var(--text-muted)]">No custom reminders. Use “Add a custom reminder” for things like filing deadlines.</p>
         ) : (
           <ul className="divide-y divide-[var(--border-subtle)]">
             {scheduled.map((r) => (
@@ -210,8 +213,8 @@ export const RemindersManager: React.FC<RemindersManagerProps> = ({ matters, onS
                 <div className="min-w-0 flex-1">
                   <p className="text-[14px] text-[var(--text-main)]">{r.message}</p>
                   <p className="mt-0.5 text-[13px] text-[var(--text-muted)]">
-                    {new Date(r.remindAt).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
-                    {' · '}{channelLabel(r)}{' · '}{isAutomatic(r) ? 'Automatic' : 'Custom'}
+                    {new Date(r.remindAt).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                    {' · '}{channelLabel(r)}
                   </p>
                 </div>
                 <button onClick={() => handleDelete(r.id)} className="icon-button danger" aria-label="Delete reminder" title="Delete reminder">

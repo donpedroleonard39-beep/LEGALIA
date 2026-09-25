@@ -46,7 +46,7 @@ export function generatePrintableBrief(
       </head>
       <body>
         <div style="text-align: right; margin-bottom: 20px;">
-          <button onclick="window.print()" style="padding: 10px 20px; background: #1a365d; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+          <button id="print-btn" style="padding: 10px 20px; background: #1a365d; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
             Download as PDF / Print
           </button>
         </div>
@@ -83,5 +83,8 @@ export function generatePrintableBrief(
     </html>
   `;
   printWindow.document.write(html);
+  // Wired up here rather than with an inline onclick, which the site's
+  // Content-Security-Policy (vercel.json) blocks.
+  printWindow.document.getElementById('print-btn')?.addEventListener('click', () => printWindow.print());
   printWindow.document.close();
 }

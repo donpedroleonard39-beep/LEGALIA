@@ -6,7 +6,7 @@ import {
   ref, uploadBytesResumable, getDownloadURL, deleteObject 
 } from 'firebase/storage';
 import { db, storage } from '../firebase/config';
-import { acceptInviteLink } from './collabService';
+import { acceptInviteLink, deleteMatterApi, peekInviteLink, removeMemberApi, setMemberPermissionApi } from './collabService';
 import { 
   Matter, MatterDocument, TimelineEvent, Reminder, 
   AppNotification, MatterInvite, MatterPermission 
@@ -49,7 +49,8 @@ export async function saveMatter(
   uid: string, 
   name: string
 ): Promise<Matter> {
-  const id = `matter_${Date.now()}`;
+  // Random id (was a guessable timestamp).
+  const id = doc(collection(db, MATTERS_COLLECTION)).id;
   const now = new Date().toISOString();
   const matter: Matter = { 
     ...data, id, ownerId: uid, ownerName: name, 
@@ -57,99 +58,30 @@ export async function saveMatter(
     createdByName: name, createdAt: now, updatedAt: now 
   };
   await setDoc(doc(db, MATTERS_COLLECTION, id), matter);
-  if (matter.nextHearingDate) {
-    await syncHearingReminders(matter, matter.nextHearingDate);
-  }
+  // Hearing reminders are worked out by the server's daily job from
+  // nextHearingDate - nothing else to write here.
   return matter;
 }
 
 export async function updateMatterDetails(id: string, fields: Partial<Matter>): Promise<void> {
-  const before = await fetchMatterById(id);
-
   // The Firestore SDK throws if a field value is `undefined` - it does not
   // silently drop it. Callers (e.g. logSittingAndScheduleNext) pass
   // `undefined` on purpose to mean "clear this field", so translate that
-  // into Firestore's deleteField() sentinel here, in one place, rather
-  // than every caller having to know about deleteField().
+  // into Firestore's deleteField() sentinel here, in one place.
   const payload: Record<string, unknown> = { updatedAt: new Date().toISOString() };
   for (const [key, value] of Object.entries(fields)) {
+    // Membership and ownership can only change on the server.
+    if (['members', 'ownerId', 'createdAt', 'createdBy', 'id'].includes(key)) continue;
     payload[key] = value === undefined ? deleteField() : value;
   }
-
   await updateDoc(doc(db, MATTERS_COLLECTION, id), payload);
-
-  const hearingChanged = 'nextHearingDate' in fields && fields.nextHearingDate !== before?.nextHearingDate;
-  if (hearingChanged) {
-    const after = await fetchMatterById(id);
-    if (after?.nextHearingDate) {
-      await syncHearingReminders(after, after.nextHearingDate);
-    } else if (before?.nextHearingDate) {
-      // The next hearing date was cleared (e.g. judgment reserved / sine
-      // die adjournment) - cancel the now-stale reminder for the old date
-      // instead of leaving it to fire with an out-of-date hearing notice.
-      await cancelHearingReminders(id, before.nextHearingDate);
-    }
-  }
+  // Hearing reminders follow nextHearingDate automatically (server job).
 }
 
-// Deletes the per-member reminder docs created by syncHearingReminders for
-// a specific (now superseded or cleared) hearing date. Reminder doc IDs are
-// deterministic (hr_{matterId}_{uid}_{hearingDate}), so this only needs the
-// matter's member list, not a query.
-async function cancelHearingReminders(matterId: string, hearingDate: string): Promise<void> {
-  const matter = await fetchMatterById(matterId);
-  if (!matter) return;
-  const memberIds = Object.keys(matter.members);
-  await Promise.all(memberIds.map(async (uid) => {
-    const reminderId = `hr_${matterId}_${uid}_${hearingDate}`;
-    await deleteDoc(doc(db, REMINDERS_COLLECTION, reminderId)).catch(() => {});
-  }));
-}
-
-// Creates (or refreshes) a hearing reminder for every member of a matter,
-// timed to fire the morning before the hearing. Uses a deterministic
-// document ID keyed on matter + member + date so re-saving the same
-// hearing date never creates duplicate reminders - only a genuinely new
-// date produces a new reminder.
-async function syncHearingReminders(matter: Matter, hearingDate: string): Promise<void> {
-  const remindAt = new Date(`${hearingDate}T07:00:00`);
-  remindAt.setDate(remindAt.getDate() - 1);
-  const message = `Hearing tomorrow for ${matter.suitNumber} - ${matter.title}${matter.purpose ? ` (${matter.purpose})` : ''}.`;
-
-  const memberIds = Object.keys(matter.members);
-  await Promise.all(memberIds.map(async (uid) => {
-    const reminderId = `hr_${matter.id}_${uid}_${hearingDate}`;
-    const reminder: Reminder = {
-      id: reminderId,
-      userId: uid,
-      matterId: matter.id,
-      suitNumber: matter.suitNumber,
-      remindAt: remindAt.toISOString(),
-      message,
-      channel: ['email', 'inApp'],
-      fired: false,
-      createdAt: new Date().toISOString(),
-    };
-    await setDoc(doc(db, REMINDERS_COLLECTION, reminderId), reminder);
-  }));
-}
-
-export async function deleteMatterById(id: string, currentUid?: string): Promise<void> {
-  // Remove reminders first, while we are still a member (rules check that).
-  // Otherwise they keep firing for a matter that no longer exists.
-  const matter = await fetchMatterById(id);
-  if (matter?.nextHearingDate) {
-    await cancelHearingReminders(id, matter.nextHearingDate).catch(() => {});
-  }
-  if (currentUid) {
-    const own = await getDocs(query(
-      collection(db, REMINDERS_COLLECTION),
-      where('userId', '==', currentUid),
-      where('matterId', '==', id),
-    )).catch(() => null);
-    await Promise.all((own?.docs || []).map((d) => deleteDoc(d.ref).catch(() => {})));
-  }
-  await deleteDoc(doc(db, MATTERS_COLLECTION, id));
+// Deletes the matter and everything under it - history, invites, files,
+// reminders, notifications - on the server (api/account.ts).
+export async function deleteMatterById(id: string, _currentUid?: string): Promise<void> {
+  await deleteMatterApi(id);
 }
 
 // The link is fully derivable from the stored invite (matter id, invite id and
@@ -162,8 +94,10 @@ export async function generateInviteLink(
   matterId: string, 
   permission: Exclude<MatterPermission, 'owner'>
 ): Promise<string> {
-  const inviteId = `inv_${Date.now()}`;
-  const token = Math.random().toString(36).substring(2, 15);
+  // Cryptographically random, unguessable token and id.
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  const token = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  const inviteId = doc(collection(db, MATTERS_COLLECTION, matterId, 'invites')).id;
   const invite: MatterInvite = { 
     id: inviteId, matterId, email: '', invitedBy: '', 
     status: 'pending', permission, token, createdAt: new Date().toISOString() 
@@ -172,9 +106,9 @@ export async function generateInviteLink(
   return buildInviteLink(invite);
 }
 
-export async function fetchInvite(matterId: string, inviteId: string): Promise<MatterInvite | null> {
-  const snap = await getDoc(doc(db, MATTERS_COLLECTION, matterId, 'invites', inviteId));
-  return snap.exists() ? snap.data() as MatterInvite : null;
+// Which matter an invite link is for (checked on the server with the token).
+export async function fetchInvite(matterId: string, inviteId: string, token: string): Promise<{ matterSuitNumber: string; matterTitle: string } | null> {
+  return peekInviteLink(matterId, inviteId, token);
 }
 
 // Redeeming a link runs on the server (api/collab-invites, action
@@ -205,28 +139,18 @@ export async function revokeInvite(matterId: string, inviteId: string): Promise<
   await deleteDoc(doc(db, MATTERS_COLLECTION, matterId, 'invites', inviteId));
 }
 
-// Owner-only: change an existing member's permission between editor and
-// viewer. The owner's own entry can never be changed through this path.
+// Membership changes run on the server (api/account.ts), which checks that
+// the caller owns the matter. The browser can no longer edit `members`.
 export async function setMemberPermission(
   matter: Matter, uid: string, permission: Exclude<MatterPermission, 'owner'>
 ): Promise<void> {
   if (uid === matter.ownerId) throw new Error('The owner\'s permission cannot be changed.');
-  await updateDoc(doc(db, MATTERS_COLLECTION, matter.id), {
-    [`members.${uid}`]: permission,
-    updatedAt: new Date().toISOString(),
-  });
+  await setMemberPermissionApi(matter.id, uid, permission);
 }
 
-// Owner-only: remove a member's access to the matter entirely. The owner
-// cannot remove themselves this way - deleting a matter (or transferring
-// ownership, not yet supported) is the correct path for that.
 export async function removeMember(matter: Matter, uid: string): Promise<void> {
   if (uid === matter.ownerId) throw new Error('The owner cannot be removed from their own matter.');
-  const { [uid]: _removed, ...remainingMembers } = matter.members;
-  await updateDoc(doc(db, MATTERS_COLLECTION, matter.id), {
-    members: remainingMembers,
-    updatedAt: new Date().toISOString(),
-  });
+  await removeMemberApi(matter.id, uid);
 }
 
 export async function fetchTimelineEvents(matterId: string): Promise<TimelineEvent[]> {

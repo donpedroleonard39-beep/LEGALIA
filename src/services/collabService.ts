@@ -1,7 +1,8 @@
 import { auth } from '../firebase/config';
 import type { MatterPermission } from '../types';
 
-// Client for api/collab-invites.ts (in-app collaborator invitations).
+// Client for the server endpoints: api/collab-invites.ts (invitations) and
+// api/account.ts (membership changes and deletion).
 // All access changes happen on the server; this only carries the request
 // together with the signed-in user's ID token.
 
@@ -15,11 +16,11 @@ export interface PendingCollabInvite {
   createdAt: string;
 }
 
-async function call<T>(payload: Record<string, unknown>): Promise<T> {
+async function call<T>(payload: Record<string, unknown>, endpoint = '/api/collab-invites'): Promise<T> {
   const user = auth.currentUser;
   if (!user) throw new Error('Please sign in first.');
   const idToken = await user.getIdToken();
-  const response = await fetch('/api/collab-invites', {
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
     body: JSON.stringify(payload),
@@ -43,3 +44,21 @@ export const respondToCollabInvite = (inviteId: string, accept: boolean) =>
 
 export const acceptInviteLink = (matterId: string, inviteId: string, token: string) =>
   call<{ ok: true; matterId: string; alreadyMember: boolean }>({ action: 'accept-link', matterId, inviteId, token });
+
+export const peekInviteLink = (matterId: string, inviteId: string, token: string) =>
+  call<{ matterSuitNumber: string; matterTitle: string }>({ action: 'peek-link', matterId, inviteId, token });
+
+// ---- api/account.ts: membership and deletion (server-checked) ----
+const account = <T>(payload: Record<string, unknown>) => call<T>(payload, '/api/account');
+
+export const setMemberPermissionApi = (matterId: string, memberId: string, permission: SharedPermission) =>
+  account<{ ok: true }>({ action: 'set-permission', matterId, memberId, permission }).then(() => undefined);
+
+export const removeMemberApi = (matterId: string, memberId: string) =>
+  account<{ ok: true }>({ action: 'remove-member', matterId, memberId }).then(() => undefined);
+
+export const deleteMatterApi = (matterId: string) =>
+  account<{ ok: true }>({ action: 'delete-matter', matterId }).then(() => undefined);
+
+export const deleteAccountApi = () =>
+  account<{ ok: true; mattersDeleted: number }>({ action: 'delete-account', confirm: 'DELETE' });

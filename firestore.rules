@@ -1,138 +1,153 @@
 rules_version = '2';
+
+// Legalia - Firestore security rules.
+//
+// Principles:
+//  * Nobody can list or browse data they are not part of.
+//  * The browser can never ADD someone to a matter, or write reminders /
+//    notifications for anyone else. Those actions run on the server
+//    (api/*.ts, Firebase Admin SDK), which these rules do not restrict.
+//  * Everything not explicitly allowed is denied.
+//
+// Deploy: Firebase console -> Firestore Database -> Rules -> paste -> Publish.
 service cloud.firestore {
   match /databases/{database}/documents {
 
     // ---------- Helpers ----------
-    function isSignedIn() {
+    function signedIn() {
       return request.auth != null;
     }
 
-    function matterDoc(matterId) {
-      return get(/databases/$(database)/documents/matters/$(matterId));
+    function matterData(matterId) {
+      return get(/databases/$(database)/documents/matters/$(matterId)).data;
+    }
+
+    function roleIn(matterId) {
+      return matterData(matterId).members[request.auth.uid];
     }
 
     function isMember(matterId) {
-      return isSignedIn() &&
-        request.auth.uid in matterDoc(matterId).data.members;
-    }
-
-    function memberPermission(matterId) {
-      return matterDoc(matterId).data.members[request.auth.uid];
+      return signedIn() && request.auth.uid in matterData(matterId).members;
     }
 
     function canEdit(matterId) {
-      return isMember(matterId) &&
-        memberPermission(matterId) in ['owner', 'editor'];
+      return isMember(matterId) && roleIn(matterId) in ['owner', 'editor'];
     }
 
     function isOwner(matterId) {
-      return isMember(matterId) && memberPermission(matterId) == 'owner';
+      return isMember(matterId) && roleIn(matterId) == 'owner'
+        && matterData(matterId).ownerId == request.auth.uid;
+    }
+
+    function unchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    function onlyChanges(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
     }
 
     // ---------- Users ----------
-    // Every signed-in user can read any user's public profile (needed to
-    // resolve names/emails for matter members, invites, notifications).
-    // A user may only ever create or update their OWN document - there is no
-    // global role field left to protect, so this is intentionally simple.
+    // A profile can be fetched one at a time by id (to show collaborators'
+    // names), but the collection can NOT be listed - no scraping the user base.
+    // The email on a profile must be the account's real sign-in email, and it
+    // can never be changed from the browser (invitations are matched on it).
     match /users/{uid} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.auth.uid == uid;
-      allow update: if isSignedIn() && request.auth.uid == uid;
-      allow delete: if false;
+      allow get: if signedIn();
+      allow list: if false;
+
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.email == request.auth.token.email.lower();
+
+      allow update: if signedIn()
+        && request.auth.uid == uid
+        && unchanged(['uid', 'email', 'createdAt']);
+
+      allow delete: if false; // account deletion runs on the server
     }
 
     // ---------- Matters ----------
     match /matters/{matterId} {
-      // Only members (owner/editor/viewer) can read a matter. Checked
-      // directly against resource.data here (rather than via the isMember()
-      // helper, which performs a get() on the matter doc) because
-      // fetchAllMatters() runs a collection-wide query - Firestore only
-      // allows a list/query read when the rule can be evaluated from the
-      // queried document's own fields, not via a get() back on itself.
-      allow read: if isSignedIn() && request.auth.uid in resource.data.members;
+      // Query-safe check (evaluated on the document itself).
+      allow read: if signedIn() && request.auth.uid in resource.data.members;
 
-      // Anyone signed in can create a matter, but only as themselves: they
-      // must be the ownerId, and must appear in members as 'owner'. This is
-      // what replaces the old "admin/lawyer/paralegal only" restriction.
-      allow create: if isSignedIn() &&
-        request.resource.data.ownerId == request.auth.uid &&
-        request.resource.data.members[request.auth.uid] == 'owner';
+      // You can only create a matter that you own and that has NO other
+      // members. People join through invitations, which the server applies.
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.members.keys().hasOnly([request.auth.uid])
+        && request.resource.data.members[request.auth.uid] == 'owner';
 
-      // Editors/owner can update matter fields, but only the owner may
-      // change ownerId or edit the members map directly (member changes
-      // normally go through the invite-accept flow below, or owner-only
-      // removal handled client-side by an owner update).
-      allow update: if isOwner(matterId) ||
-        (canEdit(matterId) &&
-         request.resource.data.ownerId == resource.data.ownerId &&
-         request.resource.data.members == resource.data.members);
+      // Owners and editors may edit a matter's details. Membership (adding,
+      // removing, changing permissions) and ownership are never editable from
+      // the browser - those run on the server, which checks who is asking.
+      allow update: if canEdit(matterId)
+        && unchanged(['ownerId', 'members', 'createdAt', 'createdBy']);
 
-      allow delete: if isOwner(matterId);
-
-      match /documents/{docId} {
-        allow read: if isMember(matterId);
-        allow write: if canEdit(matterId);
-      }
+      // Deleting a matter (and everything under it) runs on the server so
+      // that history, invites and files are removed too.
+      allow delete: if false;
 
       match /timeline/{eventId} {
         allow read: if isMember(matterId);
-        allow write: if canEdit(matterId);
+        allow create: if canEdit(matterId) && request.resource.data.createdBy == request.auth.uid;
+        allow update: if canEdit(matterId) && unchanged(['createdBy', 'createdAt']);
+        allow delete: if canEdit(matterId);
       }
 
-      // Invites live under the matter they belong to. Only the owner can
-      // create or manage them. Anyone signed in may READ a single invite by
-      // its id (needed to show "You've been invited to Suit X" before the
-      // invitee is a member yet) - the token itself, not Firestore rules, is
-      // what keeps invite links unguessable.
+      match /documents/{docId} {
+        allow read: if isMember(matterId);
+        allow create: if canEdit(matterId) && request.resource.data.uploadedBy == request.auth.uid;
+        allow update: if canEdit(matterId) && unchanged(['uploadedBy', 'storagePath']);
+        allow delete: if canEdit(matterId);
+      }
+
+      // Shareable invite links. Only the owner can see or manage them; the
+      // person opening a link never reads this collection - the server
+      // checks the link's secret for them (api/collab-invites.ts).
       match /invites/{inviteId} {
-        allow read: if isSignedIn();
-        allow create, delete: if isOwner(matterId);
-        allow update: if isOwner(matterId) || (
-          isSignedIn() &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
-          request.resource.data.status == 'accepted'
-        );
+        allow read: if isOwner(matterId);
+        allow create: if isOwner(matterId)
+          && request.resource.data.status == 'pending'
+          && request.resource.data.permission in ['editor', 'viewer']
+          && request.resource.data.token is string
+          && request.resource.data.token.size() >= 32;
+        allow delete: if isOwner(matterId);
+        allow update: if false;
       }
     }
 
-    // ---------- Reminders (private, per-user) ----------
+    // ---------- Reminders (private, per user) ----------
+    // Only your own custom reminders. Automatic hearing reminders are worked
+    // out by the server from each matter's hearing date - nobody writes them.
     match /reminders/{reminderId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-
-      // A reminder can be created or refreshed for yourself, or for any
-      // fellow member of a matter you also belong to (covers automatic
-      // hearing-date reminders fanned out to every member on save).
-      allow create, update: if isSignedIn() && (
-        request.resource.data.userId == request.auth.uid ||
-        (request.resource.data.matterId is string &&
-         isMember(request.resource.data.matterId))
-      );
-
-      // Symmetric with create/update above: a reminder can be cancelled by
-      // its own owner, or by any fellow member of the matter it belongs to.
-      // This is required for automatic hearing-date reminders - they are
-      // fanned out to every member when a hearing date is set, and must be
-      // equally cancellable for every member when an editor clears or
-      // changes that date (e.g. logging a sitting with no next date), not
-      // just by the reminder's own owner.
-      allow delete: if isSignedIn() && (
-        resource.data.userId == request.auth.uid ||
-        (resource.data.matterId is string &&
-         isMember(resource.data.matterId))
-      );
+      allow read, delete: if signedIn() && resource.data.userId == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.fired == false
+        && isMember(request.resource.data.matterId)
+        && request.resource.data.message is string
+        && request.resource.data.message.size() <= 500;
+      allow update: if false;
     }
 
-    // ---------- Notifications (private, per-user) ----------
+    // ---------- Notifications (private, per user) ----------
+    // Created only by the server. You can read, mark read/archived and
+    // delete your own - nothing else.
     match /notifications/{notifId} {
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read, delete: if signedIn() && resource.data.userId == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && onlyChanges(['read', 'archived', 'archivedAt']);
+      allow create: if false;
+    }
 
-      // A notification can be created for yourself, or for any member of a
-      // matter you are also a member of (covers "notify the team" writes).
-      allow create: if isSignedIn() && (
-        request.resource.data.userId == request.auth.uid ||
-        (request.resource.data.matterId is string &&
-         isMember(request.resource.data.matterId))
-      );
+    // collabInvites, rateLimits and anything else: server only.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

@@ -12,7 +12,7 @@ import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 // rules (correctly) stop the browser from adding them, and the `collabInvites`
 // collection is deliberately not readable from the browser at all.
 //
-// One endpoint, five actions: create | list | revoke | respond | accept-link.
+// One endpoint, six actions: create | list | revoke | respond | peek-link | accept-link.
 // accept-link redeems a shareable invite link (matters/{id}/invites/{id}); it
 // has to run here because the person opening the link is not a member yet.
 
@@ -46,25 +46,17 @@ async function displayName(db: Firestore, uid: string, fallback = 'A colleague')
   return (snap.data()?.name as string) || fallback;
 }
 
-// Hearing reminders for a matter the person has just been given access to, so
-// they get the same "hearing tomorrow" reminders as existing members.
-// Same deterministic id as the client uses, so it never duplicates.
-async function addHearingReminder(db: Firestore, matter: Record<string, any>, matterId: string, uid: string) {
-  const date = matter.nextHearingDate as string | undefined;
-  if (!date) return;
-  const remindAt = new Date(`${date}T06:00:00Z`); // 07:00 in Nigeria, matching the client
-  remindAt.setUTCDate(remindAt.getUTCDate() - 1);
-  if (isNaN(remindAt.getTime()) || remindAt.getTime() <= Date.now()) return;
-  const id = `hr_${matterId}_${uid}_${date}`;
-  await db.collection('reminders').doc(id).set({
-    id, userId: uid, matterId,
-    suitNumber: matter.suitNumber || '',
-    remindAt: remindAt.toISOString(),
-    message: `Hearing tomorrow for ${matter.suitNumber} - ${matter.title}${matter.purpose ? ` (${matter.purpose})` : ''}.`,
-    channel: ['email', 'inApp'],
-    fired: false,
-    createdAt: new Date().toISOString(),
+// Simple per-user rate limit stored in Firestore (serverless instances share
+// no memory). Throws 429 once `max` calls happen within `windowMin` minutes.
+async function rateLimit(db: Firestore, uid: string, action: string, max: number, windowMin: number) {
+  const bucket = Math.floor(Date.now() / (windowMin * 60_000));
+  const ref = db.collection('rateLimits').doc(`${uid}_${action}_${bucket}`);
+  const count = await db.runTransaction(async (tx) => {
+    const n = ((await tx.get(ref)).data()?.count as number) || 0;
+    tx.set(ref, { count: n + 1, uid, action, expiresAt: new Date(Date.now() + windowMin * 120_000) });
+    return n + 1;
   });
+  if (count > max) throw new HttpError(429, 'Too many attempts. Please wait a few minutes and try again.');
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -78,8 +70,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const header = req.headers.authorization || '';
     const idToken = header.startsWith('Bearer ') ? header.slice(7) : '';
     if (!idToken) throw new HttpError(401, 'Please sign in first.');
-    const uid = (await getAuth().verifyIdToken(idToken).catch(() => null))?.uid;
-    if (!uid) throw new HttpError(401, 'Your session has expired. Please sign in again.');
+    const decoded = await getAuth().verifyIdToken(idToken, true).catch(() => null);
+    const uid = decoded?.uid;
+    if (!decoded || !uid) throw new HttpError(401, 'Your session has expired. Please sign in again.');
 
     const body = (req.body || {}) as Record<string, unknown>;
     const action = str(body.action);
@@ -100,12 +93,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       if (grants.length === 0) throw new HttpError(400, 'Choose at least one matter to share.');
 
-      // The invitee must already have a Legalia account.
-      const found = await db.collection('users').where('email', '==', email).limit(2).get();
-      if (found.empty) {
+      if (!decoded.email_verified) {
+        throw new HttpError(403, 'Please verify your own email address before inviting people by email.');
+      }
+      await rateLimit(db, uid, 'invite', 30, 60);
+
+      // Match on the account's real sign-in email in Firebase Auth - not on
+      // the profile document - and only if that email has been verified, so
+      // nobody can register someone else's address and catch their invites.
+      const account = await getAuth().getUserByEmail(email).catch(() => null);
+      if (!account || !(await db.collection('users').doc(account.uid).get()).exists) {
         throw new HttpError(404, 'No Legalia account uses that email yet. Ask them to register first, or share an invite link instead.');
       }
-      const inviteeId = found.docs[0].id;
+      if (!account.emailVerified) {
+        throw new HttpError(409, 'That person has not verified their email yet. Ask them to click the link in their verification email, or send them an invite link instead.');
+      }
+      const inviteeId = account.uid;
       if (inviteeId === uid) throw new HttpError(400, 'You cannot invite yourself.');
 
       // Only matters the caller owns; skip ones the invitee can already open.
@@ -216,6 +219,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const inviteRef = db.collection('collabInvites').doc(inviteId);
       const invite = (await inviteRef.get()).data();
       if (!invite || invite.inviteeId !== uid) throw new HttpError(404, 'Invitation not found.');
+      if (accept && !decoded.email_verified) {
+        throw new HttpError(403, 'Please verify your email address first - check your inbox for the verification link.');
+      }
       if (invite.status !== 'pending') {
         throw new HttpError(409, invite.status === 'revoked'
           ? 'The sender withdrew this invitation.'
@@ -244,10 +250,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
           return applied;
         });
-        for (const matterId of appliedIds) {
-          const m = (await db.collection('matters').doc(matterId).get()).data();
-          if (m) await addHearingReminder(db, m, matterId, uid).catch(() => {});
-        }
       }
 
       const status = accept ? 'accepted' : 'declined';
@@ -269,8 +271,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ status, matterIds: appliedIds });
     }
 
+    // ------------------------------------------------------------- peek-link
+    // Lets the person holding a link see which matter it is for before
+    // joining. Invites are not readable from the browser at all any more.
+    if (action === 'peek-link') {
+      await rateLimit(db, uid, 'link', 60, 60);
+      const matterId = str(body.matterId), inviteId = str(body.inviteId), token = str(body.token);
+      if (!safeId(matterId) || !safeId(inviteId) || !token) throw new HttpError(400, 'This invite link is not valid.');
+      const invite = (await db.collection('matters').doc(matterId).collection('invites').doc(inviteId).get()).data();
+      if (!invite || invite.token !== token || invite.status !== 'pending') throw new HttpError(404, 'This invite link is not valid, was cancelled, or has been used.');
+      const m = (await db.collection('matters').doc(matterId).get()).data();
+      if (!m) throw new HttpError(404, 'This matter no longer exists.');
+      return res.status(200).json({ matterSuitNumber: m.suitNumber || '', matterTitle: m.title || '', permission: invite.permission });
+    }
+
     // ----------------------------------------------------------- accept-link
     if (action === 'accept-link') {
+      await rateLimit(db, uid, 'link', 60, 60);
       const matterId = str(body.matterId);
       const inviteId = str(body.inviteId);
       const token = str(body.token);
@@ -295,7 +312,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
 
       if (!result.already) {
-        await addHearingReminder(db, result.matter, matterId, uid).catch(() => {});
         const joinerName = await displayName(db, uid, 'Someone');
         await db.collection('notifications').add({
           userId: result.matter.ownerId,

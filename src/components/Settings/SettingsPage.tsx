@@ -1,5 +1,6 @@
 import React, { useEffect, useState, type ReactNode } from 'react';
-import { Bell, Download, Monitor, Moon, Sun, User } from 'lucide-react';
+import { Bell, Download, Monitor, Moon, Sun, Trash2, User } from 'lucide-react';
+import { deleteAccountApi } from '../../services/collabService';
 import { LogoMark } from '../common/LogoMark';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -104,6 +105,8 @@ export const SettingsPage: React.FC = () => {
 
       <InstallCard />
 
+      <DeleteAccountCard />
+
       <div className="flex justify-end">
         <button type="submit" disabled={saving} className="button-primary">{saving ? 'Saving…' : 'Save changes'}</button>
       </div>
@@ -183,5 +186,53 @@ function InstallCard() {
         </div>
       </div>
     </Card>
+  );
+}
+
+// Permanently deletes the account and everything the person owns (runs on
+// the server, which requires a recent sign-in).
+function DeleteAccountCard() {
+  const { logout } = useAuth();
+  const { showToast } = useNotifications();
+  const [open, setOpen] = useState(false);
+  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const run = async () => {
+    setBusy(true);
+    try {
+      const r = await deleteAccountApi();
+      showToast('Account deleted', `Your account and ${r.mattersDeleted} matter${r.mattersDeleted === 1 ? '' : 's'} you owned were permanently deleted.`, 'success');
+      await logout().catch(() => {});
+    } catch (err: any) {
+      showToast('Not deleted', err?.message || 'Please try again.', 'error');
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <section className="panel-card space-y-3 !border-[rgba(189,81,75,.35)]">
+      <h2 className="flex items-center gap-2.5 text-[16px] font-semibold text-[var(--alert-red)]">
+        <span className="icon-box-32 !bg-[rgba(189,81,75,.1)] text-[var(--alert-red)]"><Trash2 /></span> Delete account
+      </h2>
+      <p className="text-[14px] text-[var(--text-muted)]">
+        Permanently deletes your account, every matter you own (with its history, files and reminders — for everyone on it), and removes you from matters shared with you. This cannot be undone.
+      </p>
+      {!open ? (
+        <button type="button" onClick={() => setOpen(true)} className="button-secondary text-[var(--alert-red)]">Delete my account…</button>
+      ) : (
+        <div className="space-y-3 rounded-xl border border-[rgba(189,81,75,.3)] p-4">
+          <p className="text-[13px] text-[var(--text-main)]">For your security, this only works within 15 minutes of signing in. If it fails, sign out, sign back in, and try again.</p>
+          <label className="block text-[13px] font-medium">Type <strong>DELETE</strong> to confirm
+            <input value={confirm} onChange={(e) => setConfirm(e.target.value)} className="field-control mt-1.5 w-full" autoComplete="off" />
+          </label>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => { setOpen(false); setConfirm(''); }} className="button-secondary">Cancel</button>
+            <button type="button" onClick={run} disabled={busy || confirm !== 'DELETE'} className="button-primary !border-[var(--alert-red)] !bg-[var(--alert-red)] !text-white disabled:opacity-50">
+              {busy ? 'Deleting…' : 'Permanently delete'}
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
